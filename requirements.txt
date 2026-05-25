@@ -1,6 +1,20 @@
-# Python packages only — run requirements.sh (Linux) or requirements.bat (Windows) for full setup
 PySide6
 yt-dlp
-
-
-# - ffmpeg        (not a pip package — install via OS package manager or winget)
+pypdf
+arrow
+pygame
+deep-translator
+youtube-transcript-api
+requests
+duckduckgo-search
+geopy
+folium
+beautifulsoup4
+httpx
+pyttsx3
+python-docx
+pikepdf
+img2pdf
+qrcode
+fpdf2
+adblockparser

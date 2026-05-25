@@ -1,0 +1,6 @@
+# One proxy per line
+# Format: scheme://host:port
+# scheme: socks5, socks4, http, https
+# Add your own proxies below (one per line, no comments on same line):
+# socks5://user:pass@127.0.0.1:1080
+# http://127.0.0.1:8080

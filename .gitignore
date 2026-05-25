@@ -1,0 +1,26 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+build/
+dist/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# SwordFish Specific
+.manifest.json
+browser_data.json
+browser_profile/
+*.log
+
+# Virtual environments
+venv/
+ENV/
+.env/

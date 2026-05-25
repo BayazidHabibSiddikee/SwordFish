@@ -2,70 +2,75 @@
 
 ![SwordFish Logo](icon.png)
 
-SwordFish is a **modern, high-performance, and secure** web browser built with Python 3 and PySide6. It combines a sleek "Tools Hub" with advanced security features like built-in adblocking, proxy management, and a unique **Integrity Lock** system.
+SwordFish is a **privacy-first, power-user browser** built with Python 3 and PySide6. It's designed for researchers, developers, and students who need a high-performance browsing experience integrated with a suite of 20+ productivity tools.
 
 ---
 
 ## 🚀 Key Features
 
 ### 🌐 High-End Browsing
-*   **Modern Aesthetic**: A clean, light-themed UI inspired by the Tools Hub.
-*   **Tabbed Management**: Smooth tab switching with a dedicated "New Tab" button.
-*   **Advanced Adblocker**: Four levels of protection (None, Low, Medium, Ultimate) to keep your browsing clean.
-*   **Stealth Mode**: Private browsing that leaves no trace of history or cookies.
-*   **Media Downloader**: Download high-quality video or audio directly from supported sites like YouTube.
+*   **Modern Aesthetic**: Clean, responsive UI with multi-tab support.
+*   **Privacy-First**: No external tracking, local profile storage, and a dedicated **Stealth Mode**.
+*   **Advanced Adblocker**: 4-level protection system (None, Low, Medium, Ultimate) with built-in adult content filtering.
+*   **Media Downloader**: Integrated `yt-dlp` support for downloading video (up to 4K) and audio (MP3/M4A/OGG) directly from the UI.
+*   **English-Only Mode**: Force English locale for all web content.
 
 ### 🛠️ Integrated Tools Hub
-Access 20+ productivity tools without leaving your browser:
-*   **Document Suite**: Merge/Split PDFs, Convert Word/Excel/PPTX to PDF and vice-versa.
-*   **Media Suite**: Extract YouTube transcripts, Convert images to PDF.
-*   **Smart Tools**: Real-time Translator, Weather updates, and Web Search.
-*   **Utilities**: QR Code Generator, Unit Converter, Calculator, and a secure Note Taker.
+Access professional-grade tools directly from the browser's "🔧 Tools" menu:
+*   **PDF & Document Suite**: 
+    *   Convert between Word, Excel, PPTX, Images, and PDF.
+    *   Merge/Split PDFs, extract text, and more.
+*   **Utility Suite**:
+    *   **Calculator & Converter**: Unit conversions (Temperature, Physics, Math) and Programmer's calculator (Bin/Hex/Dec).
+    *   **Archive Tools**: Manage Zip, 7z, and Tar archives.
+    *   **Media Tools**: Extract YouTube transcripts, real-time Translator, and Dictionary.
+*   **Smart Features**: Web Search, Weather updates, QR Code Generator, and secure Note Taker.
 
 ### 🛡️ Security & Integrity
-*   **Network Security**: Built-in Public IP display, Connectivity tester, and Proxy switcher.
-*   **MAC Spoofing**: Randomize your hardware address for maximum anonymity (Linux).
-*   **Integrity Lock**: The browser self-verifies its core files (`src/`), `icon.png`, and `qrcode.png` using a secret cipher. If any file is tampered with, the browser locks down to protect your data.
+*   **Integrity Lock**: A unique self-verification system that protects core files (`src/`, `icon.png`, `qrcode.png`) using a secret cipher. Unauthorized modifications trigger an automatic lockdown.
+*   **Network Security**: Built-in Public IP display, Connectivity tester, and Proxy management.
+*   **Privacy Tools**: MAC Address spoofing (Linux) and cookie management.
 
 ---
 
-## 📦 Quick Installation (Linux)
+## 📦 Installation
 
-To install everything and add the browser to your system menu:
-
+### 🐧 Linux (Recommended)
+The unified installer handles system dependencies (ffmpeg), python libraries, and desktop integration:
 ```bash
+git clone https://github.com/BayazidHabibSiddikee/SwordFish.git
+cd SwordFish
 chmod +x install.sh
 ./install.sh
 ```
-*After installation, you can find **SwordFish** in your Application Menu/Search.*
+*Launch via the application menu or run `./swordfish.sh`.*
+
+### 🪟 Windows
+1. Open Command Prompt as **Administrator**.
+2. Run the dependency installer:
+   ```cmd
+   requirements.bat
+   ```
+3. Run the application:
+   ```cmd
+   python src/main.py
+   ```
 
 ---
 
-## 🪟 Windows Installation
-
-1.  Open **Command Prompt** as Administrator.
-2.  Run the setup:
-    ```cmd
-    requirements.bat
-    ```
-3.  (Optional) Build the executable:
-    ```cmd
-    build_exe.bat
-    ```
-
----
-
-## 📁 Architecture & Data
-*   **Codebase**: Core logic resides in `src/`, extensions in `tools/`, and security in `utils/`.
-*   **Data Storage**:
-    *   **Linux/Mac**: `~/.swordfish_webbrowser`
-    *   **Windows**: `%APPDATA%\SwordFish`
+## 📁 Project Structure
+*   `src/`: Core browser engine and UI logic.
+*   `tools/`: 20+ specialized productivity modules.
+*   `utils/`: Security (Adblock, Integrity), Network, and TTS utilities.
+*   `assets/`: Icons and static resources.
 
 ---
 
 ## 🔒 Security Notice
-SwordFish is protected by a **File Integrity System**. Unauthorized modifications to the `src/` folder or core images will cause the application to fail its security check. To intentionally update the browser after code changes, run:
-`python3 utils/integrity.py`
+SwordFish uses a **File Integrity System**. To intentionally update the browser after modifying code in `src/`, you must re-generate the security manifest:
+```bash
+python3 utils/integrity.py
+```
 
 ---
-*Developed for power users who demand privacy and productivity.*
+*Built for power users who demand privacy and productivity.*

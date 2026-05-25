@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwordFish Tools Hub</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0faff;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #0077b6;
+            margin-bottom: 30px;
+            font-size: 32px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+        }
+        .section-title {
+            color: #0096c7;
+            border-bottom: 2px solid #ade8f4;
+            padding-bottom: 5px;
+            margin: 30px 0 15px;
+            font-size: 22px;
+        }
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+            gap: 20px;
+        }
+        .tool-card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 1px solid #caf0f8;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .tool-card:hover {
+            transform: translateY(-5px);
+            background-color: #e0f2fe;
+            border-color: #00b4d8;
+            box-shadow: 0 8px 15px rgba(0,180,216,0.2);
+        }
+        .tool-icon {
+            font-size: 40px;
+            margin-bottom: 12px;
+            display: block;
+        }
+        .tool-name {
+            font-size: 16px;
+            font-weight: bold;
+            color: #023e8a;
+        }
+        .tool-desc {
+            font-size: 11px;
+            color: #666;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 SwordFish Tools Hub</h1>
+
+        <div class="section-title">📄 PDF & Document Tools</div>
+        <div class="tool-grid">
+            <div class="tool-card" onclick="runTool('pdf_merge')">
+                <span class="tool-icon">📚</span>
+                <div class="tool-name">Merge PDFs</div>
+                <div class="tool-desc">Combine multiple PDFs into one</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_split')">
+                <span class="tool-icon">✂️</span>
+                <div class="tool-name">Split PDF</div>
+                <div class="tool-desc">Extract pages from PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('word_to_pdf')">
+                <span class="tool-icon">📝</span>
+                <div class="tool-name">Word → PDF</div>
+                <div class="tool-desc">Convert DOCX to PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_to_word')">
+                <span class="tool-icon">📖</span>
+                <div class="tool-name">PDF → Word</div>
+                <div class="tool-desc">Convert PDF to DOCX</div>
+            </div>
+            <div class="tool-card" onclick="runTool('xlsx_to_pdf')">
+                <span class="tool-icon">📊</span>
+                <div class="tool-name">Excel → PDF</div>
+                <div class="tool-desc">Convert XLSX to PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_to_xlsx')">
+                <span class="tool-icon">📉</span>
+                <div class="tool-name">PDF → Excel</div>
+                <div class="tool-desc">Convert PDF to XLSX</div>
+            </div>
+            <div class="tool-card" onclick="runTool('csv_to_xlsx')">
+                <span class="tool-icon">🧾</span>
+                <div class="tool-name">CSV → Excel</div>
+                <div class="tool-desc">Convert CSV to XLSX</div>
+            </div>
+            <div class="tool-card" onclick="runTool('xlsx_to_csv')">
+                <span class="tool-icon">📋</span>
+                <div class="tool-name">Excel → CSV</div>
+                <div class="tool-desc">Convert XLSX to CSV</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pptx_to_pdf')">
+                <span class="tool-icon">📽️</span>
+                <div class="tool-name">PPTX → PDF</div>
+                <div class="tool-desc">Convert PowerPoint to PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_to_pptx')">
+                <span class="tool-icon">🎞️</span>
+                <div class="tool-name">PDF → PPTX</div>
+                <div class="tool-desc">Convert PDF to PPTX</div>
+            </div>
+            <div class="tool-card" onclick="runTool('image_to_pdf')">
+                <span class="tool-icon">🖼️</span>
+                <div class="tool-name">Image → PDF</div>
+                <div class="tool-desc">Convert images to PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_to_image')">
+                <span class="tool-icon">📷</span>
+                <div class="tool-name">PDF → Image</div>
+                <div class="tool-desc">Convert PDF to images</div>
+            </div>
+            <div class="tool-card" onclick="runTool('text_to_pdf')">
+                <span class="tool-icon">🔡</span>
+                <div class="tool-name">Text → PDF</div>
+                <div class="tool-desc">Convert text to PDF</div>
+            </div>
+            <div class="tool-card" onclick="runTool('pdf_to_text')">
+                <span class="tool-icon">📜</span>
+                <div class="tool-name">PDF → Text</div>
+                <div class="tool-desc">Extract text from PDF</div>
+            </div>
+        </div>
+
+        <div class="section-title">🌐 Language & Media</div>
+        <div class="tool-grid">
+            <div class="tool-card" onclick="runTool('translate')">
+                <span class="tool-icon">🌐</span>
+                <div class="tool-name">Translate</div>
+                <div class="tool-desc">Translate text instantly</div>
+            </div>
+            <div class="tool-card" onclick="runTool('transcript')">
+                <span class="tool-icon">🎬</span>
+                <div class="tool-name">YT Transcript</div>
+                <div class="tool-desc">Get YouTube video text</div>
+            </div>
+        </div>
+
+        <div class="section-title">🛠️ Utilities</div>
+        <div class="tool-grid">
+            <div class="tool-card" onclick="runTool('archive')">
+                <span class="tool-icon">📦</span>
+                <div class="tool-name">Archive Tools</div>
+                <div class="tool-desc">Zip, 7z, Tar utilities</div>
+            </div>
+            <div class="tool-card" onclick="runTool('timer')">
+                <span class="tool-icon">⏱</span>
+                <div class="tool-name">Timer</div>
+                <div class="tool-desc">Countdown timer</div>
+            </div>
+            <div class="tool-card" onclick="runTool('qr')">
+                <span class="tool-icon">🔳</span>
+                <div class="tool-name">QR Generator</div>
+                <div class="tool-desc">Create QR codes</div>
+            </div>
+            <div class="tool-card" onclick="runTool('calculator')">
+                <span class="tool-icon">🔢</span>
+                <div class="tool-name">Calculator</div>
+                <div class="tool-desc">Quick calculations</div>
+            </div>
+            <div class="tool-card" onclick="runTool('weather')">
+                <span class="tool-icon">🌡</span>
+                <div class="tool-name">Weather</div>
+                <div class="tool-desc">Check current weather</div>
+            </div>
+            <div class="tool-card" onclick="runTool('note')">
+                <span class="tool-icon">📝</span>
+                <div class="tool-name">Take Note</div>
+                <div class="tool-desc">Quickly jot down your thoughts</div>
+            </div>
+        </div>
+
+        <div style="text-align: center; margin-top: 50px; padding-top: 20px; border-top: 2px solid #ade8f4;">
+            <p style="font-size: 18px; color: #0077b6; font-weight: bold; margin-bottom: 5px;">Buy me a cup of coffee! ☕</p>
+            <img src="qrcode.png" alt="QR Code" style="width: 150px; height: 150px; margin-top: 15px; border: 2px solid #0096c7; border-radius: 12px; padding: 5px; background: white;">
+        </div>
+    </div>
+
+    <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
+    <script>
+        var backend;
+        new QWebChannel(qt.webChannelTransport, function (channel) {
+            backend = channel.objects.backend;
+        });
+
+        function runTool(name) {
+            if (backend) {
+                backend.run_tool(name);
+            } else {
+                console.error("Backend not connected");
+            }
+        }
+    </script>
+</body>
+</html>

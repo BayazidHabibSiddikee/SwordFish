@@ -6,7 +6,7 @@ echo ━━━━━━━━━━━━━━━━━━━━━━━━━
 
 echo.
 echo [1/3] Installing Python packages...
-pip install PySide6 yt-dlp
+pip install -r requirements.txt
 
 echo.
 echo [2/3] Installing ffmpeg via winget...
