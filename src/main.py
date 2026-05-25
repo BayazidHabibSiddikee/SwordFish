@@ -1145,10 +1145,15 @@ class Main(QMainWindow):
                 status_label.setText("⏰ Time's up!")
                 btn.setEnabled(True)
                 try:
-                    from pygame import mixer
-                    mixer.init()
-                    mixer.music.load(os.path.join(ROOT, "alarm.wav"))
-                    mixer.music.play()
+                    alarm_file = os.path.join(ROOT, "alarm.wav")
+                    if os.path.exists(alarm_file):
+                        if OS == "windows":
+                            cmd = ["powershell", "-c", f"(New-Object Media.SoundPlayer '{alarm_file}').PlaySync()"]
+                            subprocess.Popen(cmd)
+                        else:
+                            # Use ffplay (since ffmpeg is a dependency)
+                            subprocess.Popen(["ffplay", "-nodisp", "-autoexit", alarm_file], 
+                                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
                 except Exception:
                     pass
                 return

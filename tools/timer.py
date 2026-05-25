@@ -2,21 +2,40 @@
 # tools/timer.py — runs as its own process
 # Usage: python timer.py --duration 300   (300 seconds = 5 minutes)
 
-import os, sys, time, argparse
+import os, sys, time, argparse, subprocess
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-# Suppress ALSA noise before any audio import
-_dn = os.open(os.devnull, os.O_WRONLY)
-_se = os.dup(2)
-os.dup2(_dn, 2)
 try:
     import arrow
-    from pygame import mixer
-finally:
-    os.dup2(_se, 2)
-    os.close(_se)
-    os.close(_dn)
+except ImportError:
+    print("Error: 'arrow' library missing. Run pip install arrow")
+    sys.exit(1)
+
+
+def play_alarm():
+    """Play alarm.wav using available system tools (ffplay, powershell, etc.)"""
+    root = Path(__file__).resolve().parent.parent
+    alarm_file = root / 'alarm.wav'
+    if not alarm_file.exists():
+        print("SPEAK: Timer done! No alarm.wav found.")
+        return
+
+    try:
+        if sys.platform == "win32":
+            # Use PowerShell on Windows
+            cmd = ["powershell", "-c", f"(New-Object Media.SoundPlayer '{alarm_file}').PlaySync()"]
+            subprocess.run(cmd, check=False)
+        else:
+            # Use ffplay (since ffmpeg is a dependency) or aplay on Linux
+            if subprocess.run(["which", "ffplay"], capture_output=True).returncode == 0:
+                subprocess.run(["ffplay", "-nodisp", "-autoexit", str(alarm_file)], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                subprocess.run(["aplay", str(alarm_file)], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception as e:
+        print(f"SPEAK: Timer done! Sound error: {e}")
 
 
 def format_duration(seconds: int) -> str:
@@ -48,20 +67,7 @@ def run_timer(duration_seconds: int):
         if arrow.now().format('H:m:s') == end_str:
             print("SPEAK: Time's up!")
             sys.stdout.flush()
-            try:
-                root = Path(__file__).resolve().parent.parent
-                alarm_file = root / 'alarm.wav'
-                if alarm_file.exists():
-                    mixer.init()
-                    mixer.music.load(str(alarm_file))
-                    mixer.music.play()
-                    while mixer.music.get_busy():
-                        time.sleep(1)
-                else:
-                    print("SPEAK: Timer done! No alarm.wav found.")
-            except Exception as e:
-                print(f"SPEAK: Timer done! Sound error: {e}")
-                sys.stdout.flush()
+            play_alarm()
             break
         time.sleep(1)
 

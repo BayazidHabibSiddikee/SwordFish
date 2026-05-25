@@ -33,7 +33,7 @@ if python3 -m pip install --dry-run PySide6 2>&1 | grep "externally-managed-envi
     PIP_FLAGS="--break-system-packages"
 fi
 
-python3 -m pip install $PIP_FLAGS PySide6 yt-dlp pypdf arrow pygame deep-translator \
+python3 -m pip install $PIP_FLAGS PySide6 yt-dlp pypdf arrow deep-translator \
     youtube-transcript-api requests duckduckgo-search \
     geopy folium beautifulsoup4 httpx pyttsx3 \
     python-docx pikepdf img2pdf qrcode fpdf2 adblockparser \

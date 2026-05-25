@@ -2,7 +2,6 @@ PySide6
 yt-dlp
 pypdf
 arrow
-pygame
 deep-translator
 youtube-transcript-api
 requests

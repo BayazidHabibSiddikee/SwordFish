@@ -52,7 +52,7 @@ if exist "requirements.txt" (
 ) else (
     echo       (requirements.txt not found — installing known package list)
     %PYTHON% -m pip install ^
-        PySide6 yt-dlp pypdf arrow pygame deep-translator ^
+        PySide6 yt-dlp pypdf arrow deep-translator ^
         youtube-transcript-api requests duckduckgo-search ^
         geopy folium beautifulsoup4 httpx pyttsx3 ^
         python-docx pikepdf img2pdf qrcode fpdf2 adblockparser ^
