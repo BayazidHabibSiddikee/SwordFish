@@ -2086,17 +2086,5 @@ if __name__ == "__main__":
     # Apply modern theme
     apply_theme(app)
     
-    # Integrity Check
-    from utils.integrity import verify_integrity
-    MANIFEST = os.path.join(ROOT, ".manifest.json")
-    SRC_DIR  = os.path.join(ROOT, "src")
-    QR_PATH  = os.path.join(SRC_DIR, "qrcode.png")
-    ICON_PATH = os.path.join(ROOT, "icon.png")
-
-    ok, msg = verify_integrity(SRC_DIR, QR_PATH, ICON_PATH, MANIFEST)
-    if not ok:
-        QMessageBox.critical(None, "Integrity Error",
-            f"SwordFish security check failed!\n\n{msg}\n\nApplication will exit.")
-        sys.exit(1)
     window = Main()
     sys.exit(app.exec())

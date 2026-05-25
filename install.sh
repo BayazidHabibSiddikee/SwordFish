@@ -49,7 +49,6 @@ rm -rf "$INSTALL_DIR/.git" "$INSTALL_DIR/build" "$INSTALL_DIR/dist"
 
 # 5. Set Permissions & Generate Launcher
 echo "[4/5] Setting permissions and creating launcher..."
-chmod +x "$INSTALL_DIR/utils/integrity.py"
 
 LAUNCHER="$INSTALL_DIR/swordfish.sh"
 printf '#!/bin/bash\ncd "%s" || exit 1\nexec python3 "%s/src/main.py" "$@"\n' \
