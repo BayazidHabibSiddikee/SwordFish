@@ -43,8 +43,22 @@ def verify_integrity(src_dir, qr_path, icon_path, expected_manifest_file):
     if not os.path.exists(expected_manifest_file):
         return False, "Manifest missing"
 
-    with open(expected_manifest_file, 'r') as f:
-        expected = json.load(f)
+    try:
+        from cryptography.fernet import Fernet
+        import base64
+        
+        # Derive key from CIPHER_TAG
+        key_hash = hashlib.sha256(CIPHER_TAG).digest()
+        key = base64.urlsafe_b64encode(key_hash)
+        f = Fernet(key)
+        
+        with open(expected_manifest_file, 'rb') as file:
+            encrypted_data = file.read()
+        
+        decrypted_data = f.decrypt(encrypted_data)
+        expected = json.loads(decrypted_data)
+    except Exception as e:
+        return False, f"Manifest decryption failed: {e}"
 
     # 1. Check QR Code tag
     if os.path.exists(qr_path):
@@ -96,6 +110,17 @@ if __name__ == "__main__":
     
     print("Generating manifest...")
     manifest = get_dir_manifest(SRC)
-    with open(MANIFEST, 'w') as f:
-        json.dump(manifest, f, indent=2)
-    print(f"Manifest saved to {MANIFEST}")
+
+    # Encrypt the manifest
+    from cryptography.fernet import Fernet
+    import base64
+    key_hash = hashlib.sha256(CIPHER_TAG).digest()
+    key = base64.urlsafe_b64encode(key_hash)
+    f = Fernet(key)
+    
+    encrypted_manifest = f.encrypt(json.dumps(manifest, indent=2).encode())
+    
+    with open(MANIFEST, 'wb') as file:
+        file.write(encrypted_manifest)
+        
+    print(f"Encrypted manifest saved to {MANIFEST}")

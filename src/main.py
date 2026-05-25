@@ -1240,9 +1240,14 @@ class Main(QMainWindow):
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
 
-        btn = QPushButton("Select Word (.docx) file")
+        btn = QPushButton("Select Word (.docx) file…")
         layout.addWidget(btn)
+        progress = QProgressBar()
+        progress.setRange(0, 0)   # indeterminate spinner
+        progress.setVisible(False)
+        layout.addWidget(progress)
         result = QLabel("")
+        result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1250,13 +1255,30 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save PDF", "", "PDF (*.pdf)")
             if not out: return
-            try:
-                from tools.doc_tools import word_to_pdf
-                word_to_pdf(path, out)
-                result.setText(f"Saved: {out}")
-                QMessageBox.information(dlg, "Success", f"PDF saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+
+            btn.setEnabled(False)
+            progress.setVisible(True)
+            result.setText("Converting… please wait.")
+
+            def worker():
+                try:
+                    from tools.doc_tools import word_to_pdf
+                    word_to_pdf(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(out_path, err):
+                progress.setVisible(False)
+                btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}")
+                    QMessageBox.critical(dlg, "Conversion Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {out_path}")
+                    QMessageBox.information(dlg, "Success", f"PDF saved to:\n{out_path}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
@@ -1267,9 +1289,14 @@ class Main(QMainWindow):
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
 
-        btn = QPushButton("Select PDF file")
+        btn = QPushButton("Select PDF file…")
         layout.addWidget(btn)
+        progress = QProgressBar()
+        progress.setRange(0, 0)
+        progress.setVisible(False)
+        layout.addWidget(progress)
         result = QLabel("")
+        result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1277,13 +1304,30 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save DOCX", "", "Word (*.docx)")
             if not out: return
-            try:
-                from tools.doc_tools import pdf_to_word
-                pdf_to_word(path, out)
-                result.setText(f"Saved: {out}")
-                QMessageBox.information(dlg, "Success", f"Word file saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+
+            btn.setEnabled(False)
+            progress.setVisible(True)
+            result.setText("Converting… please wait.")
+
+            def worker():
+                try:
+                    from tools.doc_tools import pdf_to_word
+                    pdf_to_word(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(out_path, err):
+                progress.setVisible(False)
+                btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}")
+                    QMessageBox.critical(dlg, "Conversion Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {out_path}")
+                    QMessageBox.information(dlg, "Success", f"Word file saved to:\n{out_path}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
@@ -1371,9 +1415,11 @@ class Main(QMainWindow):
         dlg.setWindowTitle("Excel → PDF")
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
-        btn = QPushButton("Select Excel (.xlsx) file")
+        btn = QPushButton("Select Excel (.xlsx) file…")
         layout.addWidget(btn)
-        result = QLabel("")
+        progress = QProgressBar(); progress.setRange(0, 0); progress.setVisible(False)
+        layout.addWidget(progress)
+        result = QLabel(""); result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1381,12 +1427,24 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save PDF", "", "PDF (*.pdf)")
             if not out: return
-            try:
-                from tools.office_tools import xlsx_to_pdf
-                xlsx_to_pdf(path, out)
-                QMessageBox.information(dlg, "Success", f"PDF saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+            btn.setEnabled(False); progress.setVisible(True); result.setText("Converting…")
+
+            def worker():
+                try:
+                    from tools.office_tools import xlsx_to_pdf
+                    xlsx_to_pdf(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(o, err):
+                progress.setVisible(False); btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}"); QMessageBox.critical(dlg, "Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {o}"); QMessageBox.information(dlg, "Success", f"PDF saved to:\n{o}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
@@ -1396,9 +1454,11 @@ class Main(QMainWindow):
         dlg.setWindowTitle("PDF → Excel")
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
-        btn = QPushButton("Select PDF file")
+        btn = QPushButton("Select PDF file…")
         layout.addWidget(btn)
-        result = QLabel("")
+        progress = QProgressBar(); progress.setRange(0, 0); progress.setVisible(False)
+        layout.addWidget(progress)
+        result = QLabel(""); result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1406,12 +1466,24 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save XLSX", "", "Excel (*.xlsx)")
             if not out: return
-            try:
-                from tools.office_tools import pdf_to_xlsx
-                pdf_to_xlsx(path, out)
-                QMessageBox.information(dlg, "Success", f"Excel saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+            btn.setEnabled(False); progress.setVisible(True); result.setText("Extracting…")
+
+            def worker():
+                try:
+                    from tools.office_tools import pdf_to_xlsx
+                    pdf_to_xlsx(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(o, err):
+                progress.setVisible(False); btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}"); QMessageBox.critical(dlg, "Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {o}"); QMessageBox.information(dlg, "Success", f"Excel saved to:\n{o}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
@@ -1471,9 +1543,11 @@ class Main(QMainWindow):
         dlg.setWindowTitle("PowerPoint → PDF")
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
-        btn = QPushButton("Select PowerPoint (.pptx) file")
+        btn = QPushButton("Select PowerPoint (.pptx) file…")
         layout.addWidget(btn)
-        result = QLabel("")
+        progress = QProgressBar(); progress.setRange(0, 0); progress.setVisible(False)
+        layout.addWidget(progress)
+        result = QLabel(""); result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1481,12 +1555,24 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save PDF", "", "PDF (*.pdf)")
             if not out: return
-            try:
-                from tools.office_tools import pptx_to_pdf
-                pptx_to_pdf(path, out)
-                QMessageBox.information(dlg, "Success", f"PDF saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+            btn.setEnabled(False); progress.setVisible(True); result.setText("Converting…")
+
+            def worker():
+                try:
+                    from tools.office_tools import pptx_to_pdf
+                    pptx_to_pdf(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(o, err):
+                progress.setVisible(False); btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}"); QMessageBox.critical(dlg, "Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {o}"); QMessageBox.information(dlg, "Success", f"PDF saved to:\n{o}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
@@ -1496,9 +1582,11 @@ class Main(QMainWindow):
         dlg.setWindowTitle("PDF → PowerPoint")
         dlg.setMinimumWidth(500)
         layout = QVBoxLayout(dlg)
-        btn = QPushButton("Select PDF file")
+        btn = QPushButton("Select PDF file…")
         layout.addWidget(btn)
-        result = QLabel("")
+        progress = QProgressBar(); progress.setRange(0, 0); progress.setVisible(False)
+        layout.addWidget(progress)
+        result = QLabel(""); result.setWordWrap(True)
         layout.addWidget(result)
 
         def do_convert():
@@ -1506,12 +1594,24 @@ class Main(QMainWindow):
             if not path: return
             out, _ = QFileDialog.getSaveFileName(dlg, "Save PPTX", "", "PowerPoint (*.pptx)")
             if not out: return
-            try:
-                from tools.office_tools import pdf_to_pptx
-                pdf_to_pptx(path, out)
-                QMessageBox.information(dlg, "Success", f"PPTX saved to:\n{out}")
-            except Exception as e:
-                QMessageBox.critical(dlg, "Error", str(e))
+            btn.setEnabled(False); progress.setVisible(True); result.setText("Converting…")
+
+            def worker():
+                try:
+                    from tools.office_tools import pdf_to_pptx
+                    pdf_to_pptx(path, out)
+                    QTimer.singleShot(0, lambda: _done(out, None))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: _done(None, e))
+
+            def _done(o, err):
+                progress.setVisible(False); btn.setEnabled(True)
+                if err:
+                    result.setText(f"Error: {err}"); QMessageBox.critical(dlg, "Error", str(err))
+                else:
+                    result.setText(f"✔ Saved: {o}"); QMessageBox.information(dlg, "Success", f"PPTX saved to:\n{o}")
+
+            threading.Thread(target=worker, daemon=True).start()
 
         btn.clicked.connect(do_convert)
         dlg.exec()
