@@ -62,8 +62,8 @@ swordfish/
 
 ```bash
 # Clone the repo
-git clone https://github.com/BayazidHabibSiddikee/swordfish_webrowser.git
-cd swordfish_webrowser
+git clone https://github.com/BayazidHabibSiddikee/SwordFish.git
+cd SwordFish
 
 # Run the setup script — handles everything automatically
 chmod +x requirements.sh
@@ -85,12 +85,12 @@ python main.py
 ### Windows
 
 ```bat
-git clone https://github.com/BayazidHabibSiddikee/swordfish_webrowser.git
-cd swordfish_webrowser
+git clone https://github.com/BayazidHabibSiddikee/SwordFish.git
+cd SwordFish
 requirements.bat
 ```
 
-Or just download and run `https://github.com/BayazidHabibSiddikee/swordfish_webrowser/releases/download/v1.0.0/Swordfish.exe` — no Python needed.
+Or just download and run `https://github.com/BayazidHabibSiddikee/SwordFish/releases/download/v1.0.0/Swordfish.exe` — no Python needed.
 
 ---
 
@@ -98,8 +98,8 @@ Or just download and run `https://github.com/BayazidHabibSiddikee/swordfish_webr
 
 ```bash
 pkg install git python
-git clone https://github.com/BayazidHabibSiddikee/swordfish_webrowser.git
-cd swordfish_webrowser
+git clone https://github.com/BayazidHabibSiddikee/SwordFish.git
+cd SwordFish
 chmod +x requirements.sh && ./requirements.sh
 python main.py
 ```
