@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=SwordFish
+GenericName=browser
+# EDIT THIS: full path to your swordfish.sh
+Exec=~/.swordfish/swordfish.sh
+Icon=~/.swordfish/icon.png
+Terminal=false
+Categories=Development;Engineering;Software;
+Keywords=browser;
+StartupNotify=true

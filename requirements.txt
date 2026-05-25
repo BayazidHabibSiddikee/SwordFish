@@ -1,0 +1,6 @@
+# Python packages only — run requirements.sh (Linux) or requirements.bat (Windows) for full setup
+PySide6
+yt-dlp
+
+
+# - ffmpeg        (not a pip package — install via OS package manager or winget)
