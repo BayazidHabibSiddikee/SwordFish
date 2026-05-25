@@ -830,6 +830,9 @@ class Main(QMainWindow):
         t = QAction("Calculator", self)
         t.triggered.connect(self._open_calculator)
         util_menu.addAction(t)
+        t = QAction("Programmer's Converter (Base)", self)
+        t.triggered.connect(self._open_programmer_calc)
+        util_menu.addAction(t)
         t = QAction("Note Taker", self)
         t.triggered.connect(self._open_note_taker)
         util_menu.addAction(t)
@@ -1720,6 +1723,44 @@ class Main(QMainWindow):
                 display.setText(display.text() + text)
 
         display.returnPressed.connect(lambda: _btn_click("="))
+        dlg.exec()
+
+    def _open_programmer_calc(self):
+        dlg = QDialog(self)
+        dlg.setWindowTitle("Programmer's Converter (Base)")
+        dlg.setMinimumWidth(400)
+        layout = QVBoxLayout(dlg)
+
+        form = QFormLayout()
+        val_input = QLineEdit()
+        from_base = QComboBox()
+        from_base.addItems(["dec", "bin", "hex", "oct"])
+        to_base = QComboBox()
+        to_base.addItems(["bin", "hex", "oct", "dec"])
+        
+        form.addRow("Value:", val_input)
+        form.addRow("From Base:", from_base)
+        form.addRow("To Base:", to_base)
+        layout.addLayout(form)
+
+        result_label = QLabel("Result: ")
+        result_label.setStyleSheet("font-weight: bold; font-size: 14pt; color: #2980b9; margin-top: 10px;")
+        layout.addWidget(result_label)
+
+        def do_convert():
+            v = val_input.text().strip()
+            if not v:
+                result_label.setText("Result: ")
+                return
+            fb = from_base.currentText()
+            tb = to_base.currentText()
+            from tools.student_tools import programmer_calc
+            result_label.setText(f"Result: {programmer_calc(v, fb, tb)}")
+
+        val_input.textChanged.connect(do_convert)
+        from_base.currentIndexChanged.connect(do_convert)
+        to_base.currentIndexChanged.connect(do_convert)
+        
         dlg.exec()
 
     def _open_note_taker(self):

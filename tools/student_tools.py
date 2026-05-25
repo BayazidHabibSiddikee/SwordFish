@@ -106,6 +106,25 @@ def calculate(expression: str) -> str:
         return f"Error: {e}"
 
 
+def programmer_calc(value: str, from_base: str, to_base: str) -> str:
+    """Convert values between Dec, Bin, Hex, and Oct."""
+    try:
+        value = value.strip()
+        if from_base == "dec": val = int(value)
+        elif from_base == "bin": val = int(value, 2)
+        elif from_base == "hex": val = int(value, 16)
+        elif from_base == "oct": val = int(value, 8)
+        else: return "Invalid base"
+        
+        if to_base == "dec": return str(val)
+        elif to_base == "bin": return bin(val)[2:]
+        elif to_base == "hex": return hex(val)[2:].upper()
+        elif to_base == "oct": return oct(val)[2:]
+        return "Invalid base"
+    except Exception as e:
+        return f"Error: {e}"
+
+
 def save_note(text: str, filepath: str = None) -> str:
     if filepath is None:
         from datetime import datetime

@@ -33,7 +33,8 @@ fi
 python3 -m pip install $PIP_FLAGS PySide6 yt-dlp pypdf arrow pygame deep-translator \
     youtube-transcript-api requests duckduckgo-search \
     geopy folium beautifulsoup4 httpx pyttsx3 \
-    python-docx pikepdf img2pdf qrcode fpdf2 adblockparser
+    python-docx pikepdf img2pdf qrcode fpdf2 adblockparser \
+    mammoth pymupdf pdf2docx pandas openpyxl pdfplumber
 
 # 4. Set Permissions
 echo "[3/4] Setting permissions..."

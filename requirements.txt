@@ -18,3 +18,9 @@ img2pdf
 qrcode
 fpdf2
 adblockparser
+mammoth
+pymupdf
+pdf2docx
+pandas
+openpyxl
+pdfplumber
