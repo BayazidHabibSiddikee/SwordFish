@@ -33,7 +33,11 @@ from PySide6.QtWebEngineCore    import (QWebEngineScript, QWebEngineProfile,
 from PySide6.QtWebChannel import QWebChannel
 from PySide6.QtGui   import QAction, QCursor, QIcon
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if hasattr(sys, '_MEIPASS'):
+    ROOT = sys._MEIPASS
+else:
+    ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
 sys.path.insert(0, ROOT)
 
 from utils.adblocker import get_blocker
