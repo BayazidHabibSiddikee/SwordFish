@@ -111,10 +111,92 @@ class BlockInterceptor(QWebEngineUrlRequestInterceptor):
             info.block(True)
 
 
+TOOL_DEPENDENCIES = {
+    "web_terminal": ["flask", "flask-socketio", "ptyprocess"],
+    "pdf_merge": ["pymupdf", "pypdf"],
+    "pdf_split": ["pymupdf", "pypdf"],
+    "word_to_pdf": ["python-docx", "docx2pdf"],
+    "pdf_to_word": ["pdf2docx"],
+    "xlsx_to_pdf": ["pandas", "openpyxl"],
+    "pdf_to_xlsx": ["pdfplumber", "pandas", "openpyxl"],
+    "csv_to_xlsx": ["pandas", "openpyxl"],
+    "xlsx_to_csv": ["pandas", "openpyxl"],
+    "pptx_to_pdf": ["python-pptx"],
+    "pdf_to_pptx": ["pdf2pptx"],
+    "image_to_pdf": ["img2pdf"],
+    "pdf_to_image": ["pymupdf"],
+    "text_to_pdf": ["fpdf2"],
+    "pdf_to_text": ["pymupdf"],
+    "translate": ["deep-translator"],
+    "transcript": ["youtube-transcript-api"],
+    "archive": ["py7zr"],
+    "timer": [],
+    "qr": ["qrcode", "pillow"],
+    "calculator": [],
+    "weather": ["requests"],
+    "note": [],
+    "search": ["duckduckgo-search"],
+    "ai_reader": ["google-genai"]
+}
+
+from PySide6.QtCore import QThread
+class VenvDownloadThread(QThread):
+    finished_sig = Signal(str, bool)
+
+    def __init__(self, tool_name):
+        super().__init__()
+        self.tool_name = tool_name
+
+    def run(self):
+        deps = TOOL_DEPENDENCIES.get(self.tool_name, [])
+        if not deps:
+            self.finished_sig.emit(self.tool_name, True)
+            return
+            
+        import subprocess, sys, os
+        venv_dir = os.path.join(ROOT, "venv")
+        try:
+            if not os.path.exists(venv_dir):
+                subprocess.run([sys.executable, "-m", "venv", venv_dir], check=True)
+            
+            if os.name == 'nt':
+                pip_exe = os.path.join(venv_dir, "Scripts", "pip.exe")
+                site_packages = os.path.join(venv_dir, "Lib", "site-packages")
+            else:
+                pip_exe = os.path.join(venv_dir, "bin", "pip")
+                import glob
+                site_packages_list = glob.glob(os.path.join(venv_dir, "lib", "python*", "site-packages"))
+                site_packages = site_packages_list[0] if site_packages_list else ""
+                
+            subprocess.run([pip_exe, "install"] + deps, check=True)
+            
+            if site_packages and site_packages not in sys.path:
+                sys.path.insert(0, site_packages)
+                
+            self.finished_sig.emit(self.tool_name, True)
+        except Exception as e:
+            print(f"Failed to download module for {self.tool_name}: {e}")
+            self.finished_sig.emit(self.tool_name, False)
+
+
 class Backend(QObject):
+    toolDownloaded = Signal(str, bool)
+
     def __init__(self, main_window):
         super().__init__()
         self.main_window = main_window
+        self.download_threads = []
+
+    @Slot(str)
+    def download_tool(self, name):
+        thread = VenvDownloadThread(name)
+        thread.finished_sig.connect(self._on_download_finished)
+        self.download_threads.append(thread)
+        thread.start()
+
+    def _on_download_finished(self, name, success):
+        self.toolDownloaded.emit(name, success)
+        self.download_threads = [t for t in self.download_threads if t.isRunning()]
 
     @Slot(str)
     def run_tool(self, name):
@@ -141,6 +223,20 @@ class Backend(QObject):
         elif name == "qr": self.main_window._open_qr()
         elif name == "calculator": self.main_window._open_calculator()
         elif name == "note": self.main_window._open_note_taker()
+        elif name == "web_terminal": self.main_window._open_web_terminal()
+
+
+class CustomWebPage(QWebEnginePage):
+    def chooseFiles(self, mode, oldFiles, acceptedMimeTypes):
+        from PySide6.QtWidgets import QFileDialog
+        import os
+        if mode == QWebEnginePage.FileSelectionMode.FileSelectOpen:
+            path, _ = QFileDialog.getOpenFileName(None, "Select File", os.path.expanduser("~"))
+            return [path] if path else []
+        elif mode == QWebEnginePage.FileSelectionMode.FileSelectOpenMultiple:
+            paths, _ = QFileDialog.getOpenFileNames(None, "Select Files", os.path.expanduser("~"))
+            return paths
+        return []
 
 class TabWidget(QWidget):
     def __init__(self, url=None, profile=None):
@@ -159,11 +255,12 @@ class TabWidget(QWidget):
         self.splitter.addWidget(self.pdf_viewer)
 
         if profile:
-            page = QWebEnginePage(profile, self)
+            page = CustomWebPage(profile, self)
             page.newWindowRequested.connect(self._on_new_window)
+            page.featurePermissionRequested.connect(lambda url, feat: page.setFeaturePermission(url, feat, QWebEnginePage.PermissionGrantedByUser))
             self.browser.setPage(page)
             
-            pdf_page = QWebEnginePage(profile, self)
+            pdf_page = CustomWebPage(profile, self)
             self.pdf_viewer.setPage(pdf_page)
 
         if url:
@@ -190,7 +287,7 @@ class TabWidget(QWidget):
         if url and hasattr(main, '_new_tab'):
             tw = main._new_tab(url)
             if tw and tw.browser:
-                request.openIn(tw.browser)
+                request.openIn(tw.browser.page())
 
 
 class Main(QMainWindow):
@@ -200,7 +297,10 @@ class Main(QMainWindow):
         self.setWindowTitle("SwordFish Browser" + (" (Private)" if is_private else ""))
 
         self.settings = QSettings("SwordFish", "Browser")
-        self.home = self.settings.value("home_url", "https://duckduckgo.com")
+        default_home = "file:///" + os.path.join(os.path.dirname(os.path.abspath(__file__)), "home.html").replace("\\", "/")
+        if self.settings.value("home_url", "https://duckduckgo.com") == "https://duckduckgo.com":
+            self.settings.setValue("home_url", default_home)
+        self.home = self.settings.value("home_url", default_home)
 
         if is_private:
             self.profile = QWebEngineProfile(self) # Off-the-record by default if no name
@@ -213,6 +313,8 @@ class Main(QMainWindow):
             )
         
         self.profile.setHttpAcceptLanguage("en-US,en;q=0.9")
+        # Mask the default QtWebEngine user agent to bypass Cloudflare/bot protection on sites like Claude
+        self.profile.setHttpUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 
         self.backend = Backend(self)
         self.channel = QWebChannel(self)
@@ -310,6 +412,7 @@ class Main(QMainWindow):
             if w and w.browser:
                 try:
                     w.browser.titleChanged.disconnect()
+                    w.browser.urlChanged.disconnect()
                 except TypeError:
                     pass
             self.tabs.removeTab(idx)
@@ -406,6 +509,11 @@ class Main(QMainWindow):
                     self.data["tabs"].append(url)
         self.data["active_tab"] = self.tabs.currentIndex()
         save_data(self.data)
+        if hasattr(self, "web_terminal_proc") and self.web_terminal_proc:
+            try:
+                self.web_terminal_proc.kill()
+            except Exception:
+                pass
         super().closeEvent(event)
 
     def _restore_tabs(self):
@@ -496,6 +604,11 @@ class Main(QMainWindow):
         if self.is_private: clear_hist.setEnabled(False)
         menu.addAction(clear_hist)
 
+        clear_cache_act = QAction("🗑  Clear cache", self)
+        clear_cache_act.triggered.connect(self._clear_cache)
+        if self.is_private: clear_cache_act.setEnabled(False)
+        menu.addAction(clear_cache_act)
+
         clear_bm = QAction("🗑  Clear bookmarks", self)
         clear_bm.triggered.connect(self._clear_bookmarks)
         if self.is_private: clear_bm.setEnabled(False)
@@ -548,6 +661,10 @@ class Main(QMainWindow):
         self._seen_urls.clear()
         save_data(self.data)
         QMessageBox.information(self, "History", "History cleared.")
+
+    def _clear_cache(self):
+        self.profile.clearHttpCache()
+        QMessageBox.information(self, "Cache", "Cache cleared.")
 
     def _clear_bookmarks(self):
         self.data["bookmarks"] = []
@@ -608,54 +725,67 @@ class Main(QMainWindow):
         close_btn.setEnabled(False)
         layout.addWidget(close_btn)
 
-        def progress_hook(d):
-            if d.get("status") == "downloading":
-                p = d.get("_percent_str", "").strip()
-                s = d.get("_speed_str", "").strip()
-                msg = f"Downloading {p} at {s}"
-                log_box.append(msg)
-            elif d.get("status") == "finished":
-                f = d.get("filename", "")
-                log_box.append(f"Finished: {f}")
-                progress.setRange(0, 100)
-                progress.setValue(100)
-                status.setText(f"Saved to:\n{f}")
-                close_btn.setEnabled(True)
-
-        def do_download():
-            try:
-                import yt_dlp
-                ydl_opts = {
-                    "outtmpl": os.path.join(dl_dir, "%(title)s.%(ext)s"),
-                    "progress_hooks": [progress_hook],
-                    "quiet": True,
-                    "no_warnings": True,
-                }
-                if mode == "video":
-                    ydl_opts["format"] = fmt
-                else:
-                    ydl_opts["format"] = fmt["format"]
-                    ydl_opts["extractaudio"] = True
-                    if fmt.get("audio_format"):
-                        ydl_opts["audioformat"] = fmt["audio_format"]
-                    if fmt.get("audio_quality"):
-                        ydl_opts["audioquality"] = fmt["audio_quality"]
-
-                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                    ydl.download([url])
-            except Exception as e:
-                log_box.append(f"Error: {e}")
-                status.setText(f"Download failed: {e}")
-                close_btn.setEnabled(True)
-
         close_btn.clicked.connect(dlg.accept)
 
-        from PySide6.QtCore import QThread
+        from PySide6.QtCore import QThread, Signal
         class DownloadThread(QThread):
+            log_sig = Signal(str)
+            finish_sig = Signal(str)
+            error_sig = Signal(str)
+
             def run(self):
-                do_download()
+                def progress_hook(d):
+                    if d.get("status") == "downloading":
+                        p = d.get("_percent_str", "").strip()
+                        s = d.get("_speed_str", "").strip()
+                        self.log_sig.emit(f"Downloading {p} at {s}")
+                    elif d.get("status") == "finished":
+                        f = d.get("filename", "")
+                        self.finish_sig.emit(f)
+
+                try:
+                    import yt_dlp
+                    ydl_opts = {
+                        "outtmpl": os.path.join(dl_dir, "%(title)s.%(ext)s"),
+                        "progress_hooks": [progress_hook],
+                        "quiet": True,
+                        "no_warnings": True,
+                    }
+                    if mode == "video":
+                        ydl_opts["format"] = fmt
+                    else:
+                        ydl_opts["format"] = fmt["format"]
+                        ydl_opts["extractaudio"] = True
+                        if fmt.get("audio_format"):
+                            ydl_opts["audioformat"] = fmt["audio_format"]
+                        if fmt.get("audio_quality"):
+                            ydl_opts["audioquality"] = fmt["audio_quality"]
+
+                    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                        ydl.download([url])
+                except Exception as e:
+                    self.error_sig.emit(str(e))
 
         t = DownloadThread()
+        # Keep a reference to the thread in the dialog so it doesn't get garbage collected
+        dlg.download_thread = t
+
+        t.log_sig.connect(log_box.append)
+
+        def on_finish(f):
+            log_box.append(f"Finished: {f}")
+            progress.setRange(0, 100)
+            progress.setValue(100)
+            status.setText(f"Saved to:\n{f}")
+            close_btn.setEnabled(True)
+
+        def on_error(err):
+            log_box.append(f"Error: {err}")
+            status.setText(f"Download failed: {err}")
+            close_btn.setEnabled(True)
+
+        t.finish_sig.connect(on_finish)
+        t.error_sig.connect(on_error)
         t.finished.connect(lambda: close_btn.setEnabled(True))
         t.start()
 
@@ -681,6 +811,13 @@ class Main(QMainWindow):
         '.ytp-ad-image-overlay', '.ytp-ad-overlay-container',
         '.ytp-ad-text-overlay', '.ytp-ad-player-overlay',
         '#masthead-ad', '#player-ads', '#merchandise-shelf',
+        /* YouTube Shorts and Music Blockers */
+        'ytd-rich-shelf-renderer[is-shorts]',
+        'ytd-reel-shelf-renderer',
+        'a[title="Shorts"]',
+        '[title="Shorts"]',
+        'a[title="YouTube Music"]',
+        '[title="YouTube Music"]'
     ];
 
     const AD_KEYWORDS = ['doubleclick', 'googlead', 'adservice',
@@ -691,6 +828,11 @@ class Main(QMainWindow):
         AD_SELECTORS.forEach(sel => {
             document.querySelectorAll(sel).forEach(el => el.remove());
         });
+        
+        // Block /shorts/ URL navigation (SPA fallback)
+        if (window.location.pathname.startsWith('/shorts/')) {
+            window.location.replace('/');
+        }
     }
 
     function removeAdImages() {
@@ -725,7 +867,7 @@ class Main(QMainWindow):
         if (debounceTimer) return;
         debounceTimer = setTimeout(function() {
             debounceTimer = null;
-            removeElements();
+            removeElements(); // Also checks for /shorts/ URL
         }, 300);
     }).observe(document.documentElement, {
         childList: true,
@@ -818,9 +960,6 @@ class Main(QMainWindow):
         util_menu = menu.addMenu("🔧  Utilities")
         t = QAction("Archive Tools (Zip/7z/Tar)", self)
         t.triggered.connect(self._open_archive_tools)
-        util_menu.addAction(t)
-        t = QAction("VPN / Proxy", self)
-        t.triggered.connect(self._open_proxy)
         util_menu.addAction(t)
         t = QAction("Timer", self)
         t.triggered.connect(self._open_timer)
@@ -1046,30 +1185,24 @@ class Main(QMainWindow):
         dlg.setFixedWidth(400)
         layout = QVBoxLayout(dlg)
 
-        title = QLabel("🔍 Web Search")
+        title = QLabel("🔍 Search PDF")
         title.setObjectName("Title")
         layout.addWidget(title)
 
         query_input = QLineEdit()
-        query_input.setPlaceholderText("Query…")
+        query_input.setPlaceholderText("Topic (e.g. quantum computing)…")
         layout.addWidget(query_input)
 
-        result_box = QTextEdit()
-        result_box.setObjectName("ResultBox")
-        result_box.setReadOnly(True)
-        result_box.setMaximumHeight(200)
-        layout.addWidget(result_box)
+        search_btn = QPushButton("Search PDFs")
+        layout.addWidget(search_btn)
 
         def do_search():
             q = query_input.text().strip()
             if not q: return
-            try:
-                from tools.knowledge_hub import search_web
-                res = search_web(q)
-                out = "\n\n".join([f"• {r['title']}\n{r['href']}" for r in res[:5]])
-                result_box.setPlainText(out or "No results.")
-            except Exception as e: result_box.setPlainText(f"Error: {e}")
+            self._new_tab(f"https://duckduckgo.com/?q={q}+filetype:pdf", "PDF Search")
+            dlg.accept()
 
+        search_btn.clicked.connect(do_search)
         query_input.returnPressed.connect(do_search)
         dlg.exec()
 
@@ -1149,7 +1282,7 @@ class Main(QMainWindow):
                 status_label.setText("⏰ Time's up!")
                 btn.setEnabled(True)
                 try:
-                    alarm_file = os.path.join(ROOT, "alarm.wav")
+                    alarm_file = os.path.join(ROOT, "tools", "alarm.wav")
                     if os.path.exists(alarm_file):
                         if OS == "windows":
                             cmd = ["powershell", "-c", f"(New-Object Media.SoundPlayer '{alarm_file}').PlaySync()"]
@@ -1726,9 +1859,10 @@ class Main(QMainWindow):
         layout = QVBoxLayout(dlg)
 
         form = QFormLayout()
-        value_input = QSpinBox()
-        value_input.setRange(0, 999999999)
-        value_input.setValue(1)
+        value_input = QDoubleSpinBox()
+        value_input.setDecimals(4)
+        value_input.setRange(0.0, 999999999.0)
+        value_input.setValue(1.0)
         form.addRow("Value:", value_input)
 
         cat_combo = QComboBox()
@@ -1871,6 +2005,13 @@ class Main(QMainWindow):
         to_base.currentIndexChanged.connect(do_convert)
         
         dlg.exec()
+
+    def _open_web_terminal(self):
+        import subprocess, os, sys
+        script_path = "/run/media/sword/F9EE-6FF0/windows/Study/Persona/Books/Extra_learnings/web_based_terminal/terminal.py"
+        if not hasattr(self, "web_terminal_proc") or not self.web_terminal_proc or self.web_terminal_proc.poll() is not None:
+            self.web_terminal_proc = subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
+        self._new_tab("http://localhost:8090", "Web Terminal")
 
     def _open_note_taker(self):
         dlg = QDialog(self)
@@ -2083,11 +2224,7 @@ if __name__ == "__main__":
 
     from PySide6.QtCore import QSettings as _QS
     _s = _QS("SwordFish", "Browser")
-    if _s.value("proxy_active", "false") == "true":
-        _val = _s.value("proxy_url", "")
-        _proxy = str(_val).strip() if _val else ""
-        if _proxy:
-            os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = f"--proxy-server={_proxy} --logging-level=3"
+    # Proxy functionality removed
 
     app = QApplication(sys.argv)
     QApplication.setApplicationName("SwordFish")

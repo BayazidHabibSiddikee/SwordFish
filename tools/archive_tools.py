@@ -16,7 +16,11 @@ def zip_files(file_paths, output_path):
     return output_path
 
 def unzip_file(zip_path, extract_to):
+    extract_to = os.path.abspath(extract_to)
     with zipfile.ZipFile(zip_path, 'r') as zipf:
+        for member in zipf.namelist():
+            if not os.path.abspath(os.path.join(extract_to, member)).startswith(extract_to):
+                raise Exception("Path traversal attempt detected")
         zipf.extractall(extract_to)
     return extract_to
 
@@ -27,7 +31,11 @@ def tar_files(file_paths, output_path, mode='w:gz'):
     return output_path
 
 def untar_file(tar_path, extract_to):
+    extract_to = os.path.abspath(extract_to)
     with tarfile.open(tar_path, 'r:*') as tar:
+        for member in tar.getmembers():
+            if not os.path.abspath(os.path.join(extract_to, member.name)).startswith(extract_to):
+                raise Exception("Path traversal attempt detected")
         tar.extractall(extract_to)
     return extract_to
 

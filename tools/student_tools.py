@@ -96,11 +96,21 @@ def _convert_temperature(value: float, from_unit: str, to_unit: str) -> float:
 
 
 def calculate(expression: str) -> str:
+    import ast, operator
     allowed = set("0123456789+-*/.()% ")
     if not all(c in allowed for c in expression):
         return "Invalid characters"
     try:
-        result = eval(expression, {"__builtins__": {}}, {})
+        ops = {ast.Add: operator.add, ast.Sub: operator.sub, ast.Mult: operator.mul,
+               ast.Div: operator.truediv, ast.Mod: operator.mod, ast.Pow: operator.pow,
+               ast.USub: operator.neg, ast.UAdd: operator.pos}
+        def _eval(node):
+            if isinstance(node, ast.Num): return node.n
+            elif isinstance(node, ast.Constant): return node.value
+            elif isinstance(node, ast.BinOp): return ops[type(node.op)](_eval(node.left), _eval(node.right))
+            elif isinstance(node, ast.UnaryOp): return ops[type(node.op)](_eval(node.operand))
+            else: raise TypeError("Unsupported operation")
+        result = _eval(ast.parse(expression, mode='eval').body)
         return str(result)
     except Exception as e:
         return f"Error: {e}"

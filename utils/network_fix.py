@@ -22,7 +22,10 @@ def random_mac():
 
 
 def run_cmd(cmd):
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
+    import shlex
+    if isinstance(cmd, str):
+        cmd = shlex.split(cmd)
+    result = subprocess.run(cmd, shell=False, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Command failed: {cmd}\n{result.stderr}", file=sys.stderr)
         sys.exit(result.returncode)
@@ -30,19 +33,20 @@ def run_cmd(cmd):
 
 
 def set_mac(iface, mac):
-    run_cmd(f"ip link set dev {iface} down")
-    run_cmd(f"ip link set dev {iface} address {mac}")
-    run_cmd(f"ip link set dev {iface} up")
+    run_cmd(["ip", "link", "set", "dev", iface, "down"])
+    run_cmd(["ip", "link", "set", "dev", iface, "address", mac])
+    run_cmd(["ip", "link", "set", "dev", iface, "up"])
 
 
 def request_dhcp(iface):
     for client in ("dhclient", "dhcpcd", "dhcpcd5", "nmcli"):
         if shutil.which(client):
             if client == "nmcli":
-                run_cmd(f"nmcli device disconnect {iface} && nmcli device connect {iface}")
+                run_cmd(["nmcli", "device", "disconnect", iface])
+                run_cmd(["nmcli", "device", "connect", iface])
             else:
-                run_cmd(f"{client} -r {iface} 2>/dev/null") # Release
-                run_cmd(f"{client} -v {iface} 2>/dev/null") # Request
+                subprocess.run([client, "-r", iface], stderr=subprocess.DEVNULL) # Release
+                subprocess.run([client, "-v", iface], stderr=subprocess.DEVNULL) # Request
             return client
     return None
 

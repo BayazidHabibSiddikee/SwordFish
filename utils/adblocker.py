@@ -179,6 +179,7 @@ class AdBlocker:
         self._ready = True
         self._adblock_parser_rules = None
         self._adblock_parser_ready = False
+        self._ready_event = threading.Event()
         
         self._cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "adblock")
         os.makedirs(self._cache_dir, exist_ok=True)
@@ -186,7 +187,10 @@ class AdBlocker:
 
         # Load adblock parser only for medium or ultimate levels
         if self._level in {"medium", "ultimate"}:
-            threading.Thread(target=self._init_adblockparser, daemon=True).start()
+            self._parser_thread = threading.Thread(target=self._init_adblockparser, daemon=True)
+            self._parser_thread.start()
+        else:
+            self._ready_event.set()
 
     def set_level(self, level: str):
         """Change blocking level at runtime."""
@@ -198,7 +202,11 @@ class AdBlocker:
             self._cache.clear()
             # Ensure parser is running if needed
             if self._level in {"medium", "ultimate"} and not self._adblock_parser_ready:
-                threading.Thread(target=self._init_adblockparser, daemon=True).start()
+                self._ready_event.clear()
+                self._parser_thread = threading.Thread(target=self._init_adblockparser, daemon=True)
+                self._parser_thread.start()
+            elif self._level not in {"medium", "ultimate"}:
+                self._ready_event.set()
 
     def _init_adblockparser(self):
         try:
@@ -232,12 +240,14 @@ class AdBlocker:
                 t1 = time.time()
                 print(f"[Adblock] Parser loaded {len(lines)} rules in {t1-t0:.1f}s")
                 self._adblock_parser_ready = True
+                self._ready_event.set()
         except Exception as e:
             print(f"[Adblock] Parser init failed: {e}")
+            self._ready_event.set()
 
 
     def wait_ready(self, timeout=1):
-        pass
+        self._ready_event.wait(timeout)
 
     def should_block(self, url: str, source_url: str = "") -> bool:
         if self._level == "none":
@@ -265,6 +275,8 @@ class AdBlocker:
             self._cache[url] = False
         elif self._level == "medium":
             # Medium level: use parser if ready
+            if not self._adblock_parser_ready:
+                self.wait_ready(timeout=0.2)
             if self._adblock_parser_ready and self._adblock_parser_rules:
                 try:
                     if self._adblock_parser_rules.should_block(url):
@@ -274,6 +286,8 @@ class AdBlocker:
                     pass
             self._cache[url] = False
         else:  # ultimate
+            if not self._adblock_parser_ready:
+                self.wait_ready(timeout=0.2)
             if self._adblock_parser_ready and self._adblock_parser_rules:
                 try:
                     if self._adblock_parser_rules.should_block(url):
@@ -319,4 +333,6 @@ def get_blocker(level="low"):
     global _blocker
     if _blocker is None:
         _blocker = AdBlocker(level)
+    elif _blocker._level != level:
+        _blocker.set_level(level)
     return _blocker

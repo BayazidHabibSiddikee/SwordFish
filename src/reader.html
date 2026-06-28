@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Reader & Gemini</title>
+    <style>
+        body { margin: 0; padding: 0; display: flex; height: 100vh; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; overflow: hidden; }
+        
+        #left-half { width: 50%; display: flex; flex-direction: column; border-right: 2px solid #ccc; background: #2c3e50; }
+        
+        #top-bar { padding: 10px; background: #1a252f; color: white; display: flex; justify-content: space-between; align-items: center; }
+        #top-bar h2 { margin: 0; font-size: 16px; }
+        .home-btn { background: #00b4d8; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px; font-size: 12px; transition: background 0.2s; }
+        .home-btn:hover { background: #0096c7; }
+        
+        .file-select-area { padding: 10px; background: #2c3e50; border-bottom: 1px solid #34495e; color: white; display: flex; align-items: center; gap: 10px; }
+        .file-select-area input[type="file"] { flex: 1; font-size: 14px; background: #34495e; padding: 5px; border-radius: 4px; cursor: pointer; color: white;}
+
+        #reader-frame { flex: 1; border: none; width: 100%; height: 100%; background: #fff; }
+        
+        #right-half { width: 50%; display: flex; flex-direction: column; background: #fff; }
+        #gemini-frame { flex: 1; border: none; width: 100%; height: 100%; }
+    </style>
+</head>
+<body>
+
+    <div id="left-half">
+        <div id="top-bar">
+            <h2>📚 AI Book Reader</h2>
+            <a href="tools.html" class="home-btn">⬅ Tools</a>
+        </div>
+        <div class="file-select-area">
+            <label for="file-picker">Select Book:</label>
+            <input type="file" id="file-picker" accept="application/pdf" onchange="handleFileSelect(event)" title="Open a local book" />
+        </div>
+        <iframe id="reader-frame" src=""></iframe>
+    </div>
+
+    <div id="right-half">
+        <iframe id="gemini-frame" src="https://gemini.google.com/app"></iframe>
+    </div>
+
+    <script>
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const fileURL = URL.createObjectURL(file);
+            document.getElementById('reader-frame').src = fileURL;
+        }
+    </script>
+</body>
+</html>

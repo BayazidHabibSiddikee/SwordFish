@@ -16,7 +16,7 @@ except ImportError:
 def play_alarm():
     """Play alarm.wav using available system tools (ffplay, powershell, etc.)"""
     root = Path(__file__).resolve().parent.parent
-    alarm_file = root / 'alarm.wav'
+    alarm_file = root / 'tools' / 'alarm.wav'
     if not alarm_file.exists():
         print("SPEAK: Timer done! No alarm.wav found.")
         return

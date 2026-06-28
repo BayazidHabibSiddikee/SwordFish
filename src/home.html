@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SwordFish Home</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #1a1a1a;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #vrm-canvas {
+            width: 100vw;
+            height: 100vh;
+            display: block;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+        #ui-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: 10;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            pointer-events: none; /* Let clicks pass through to canvas if needed */
+        }
+        .interactive {
+            pointer-events: auto;
+        }
+        #search-container {
+            background: rgba(0, 0, 0, 0.6);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        #search-container h1 {
+            color: #fff;
+            margin-top: 0;
+            font-weight: 300;
+        }
+        .search-box {
+            display: flex;
+            gap: 10px;
+        }
+        .search-box input[type="text"] {
+            padding: 12px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 25px;
+            width: 400px;
+            outline: none;
+            background: rgba(255, 255, 255, 0.9);
+        }
+        .search-box button {
+            padding: 12px 25px;
+            font-size: 16px;
+            background: #ff6b6b;
+            color: #fff;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .search-box button:hover {
+            background: #ff5252;
+        }
+        #yt-iframe-container {
+            width: 800px;
+            height: 450px;
+            background: rgba(0, 0, 0, 0.8);
+            border-radius: 15px;
+            padding: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            backdrop-filter: blur(8px);
+            display: none;
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            border-radius: 10px;
+        }
+    </style>
+    <!-- Three.js and VRM -->
+    <script src="https://unpkg.com/three@0.133.0/build/three.js"></script>
+    <script src="https://unpkg.com/three@0.133.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://unpkg.com/@pixiv/three-vrm@0.6.11/lib/three-vrm.js"></script>
+</head>
+<body>
+    <canvas id="vrm-canvas"></canvas>
+    
+    <div id="ui-container">
+        <div id="search-container" class="interactive">
+            <h1>Search YouTube</h1>
+            <form class="search-box" id="search-form">
+                <input type="text" id="search-input" placeholder="Search for a YouTube video..." autofocus autocomplete="off">
+                <button type="submit">Search</button>
+            </form>
+        </div>
+        
+        <div id="yt-iframe-container" class="interactive">
+            <iframe id="yt-iframe" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+    </div>
+
+    <script>
+        // Setup Three.js scene (NO OrbitControls)
+        (function initThreeJS() {
+            if (typeof THREE === 'undefined') {
+                console.error("THREE.js failed to load. 3D model will not be rendered.");
+                return;
+            }
+        const canvas = document.getElementById('vrm-canvas');
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(35.0, window.innerWidth / window.innerHeight, 0.1, 50.0);
+        
+        // Fixed camera position
+        camera.position.set(0.0, 1.4, 3.0);
+        camera.lookAt(0.0, 1.3, 0.0);
+        
+        const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+        renderer.setClearColor(0x1a1a1a, 1.0);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(window.devicePixelRatio);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+
+        const light = new THREE.DirectionalLight(0xffffff, 1.0);
+        light.position.set(1.0, 1.0, 1.0).normalize();
+        scene.add(light);
+        
+        const ambient = new THREE.AmbientLight(0x606060, 1.5);
+        scene.add(ambient);
+
+        // Load VRM
+        const loader = new THREE.GLTFLoader();
+        let currentVrm = null;
+        
+        loader.load('marin.vrm',
+            (gltf) => {
+                THREE.VRMUtils.removeUnnecessaryJoints(gltf.scene);
+                THREE.VRM.from(gltf).then((vrm) => {
+                    scene.add(vrm.scene);
+                    currentVrm = vrm;
+                    vrm.scene.rotation.y = Math.PI; // Face forward
+                    
+                    // Default pose
+                    vrm.humanoid.getBoneNode(THREE.VRMSchema.HumanoidBoneName.RightUpperArm).rotation.z = Math.PI / 3;
+                    vrm.humanoid.getBoneNode(THREE.VRMSchema.HumanoidBoneName.LeftUpperArm).rotation.z = -Math.PI / 3;
+                });
+            },
+            (progress) => console.log('Loading model...', 100.0 * (progress.loaded / progress.total), '%'),
+            (error) => console.error(error)
+        );
+
+        const clock = new THREE.Clock();
+        function animate() {
+            requestAnimationFrame(animate);
+            const deltaTime = clock.getDelta();
+            
+            if (currentVrm) {
+                // Subtle breathing animation
+                currentVrm.humanoid.getBoneNode(THREE.VRMSchema.HumanoidBoneName.Chest).rotation.x = Math.sin(clock.elapsedTime * 2) * 0.02;
+                currentVrm.update(deltaTime);
+            }
+            
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        })();
+
+        // Search logic
+        const form = document.getElementById('search-form');
+        const input = document.getElementById('search-input');
+        const iframeContainer = document.getElementById('yt-iframe-container');
+        const iframe = document.getElementById('yt-iframe');
+
+        form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const query = input.value.trim();
+            if (!query) return;
+
+            // Show iframe
+            iframeContainer.style.display = 'block';
+            
+            // Use YouTube's search playlist embed trick
+            const embedUrl = `https://www.youtube.com/embed?listType=search&list=${encodeURIComponent(query)}`;
+            iframe.src = embedUrl;
+        });
+    </script>
+</body>
+</html>

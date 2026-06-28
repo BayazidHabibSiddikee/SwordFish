@@ -24,3 +24,4 @@ pandas
 openpyxl
 pdfplumber
 python-pptx
+py7zr

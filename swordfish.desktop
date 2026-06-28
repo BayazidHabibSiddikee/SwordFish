@@ -4,8 +4,8 @@ Type=Application
 Name=SwordFish
 GenericName=browser
 # EDIT THIS: full path to your swordfish.sh
-Exec=~/.swordfish/swordfish.sh
-Icon=~/.swordfish/icon.png
+Exec=/home/sword/.swordfish/swordfish.sh
+Icon=/home/sword/.swordfish/icon.png
 Terminal=false
 Categories=Development;Engineering;Software;
 Keywords=browser;

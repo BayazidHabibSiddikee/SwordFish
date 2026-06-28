@@ -67,6 +67,24 @@
             margin-top: 8px;
             line-height: 1.4;
         }
+        .dl-btn {
+            margin-top: 12px;
+            padding: 6px 10px;
+            background: #f0faff;
+            border: 1px solid #ade8f4;
+            color: #0077b6;
+            border-radius: 6px;
+            font-size: 11px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            width: 100%;
+        }
+        .dl-btn:hover {
+            background: #00b4d8;
+            color: white;
+            border-color: #00b4d8;
+        }
     </style>
 </head>
 <body>
@@ -79,6 +97,11 @@
                 <span class="tool-icon">📚</span>
                 <div class="tool-name">Merge PDFs</div>
                 <div class="tool-desc">Combine multiple PDFs into one</div>
+            </div>
+            <div class="tool-card" onclick="window.location.href='reader.html'">
+                <span class="tool-icon">🧠</span>
+                <div class="tool-name">AI Book Reader</div>
+                <div class="tool-desc">Read PDFs with Gemini Assistant</div>
             </div>
             <div class="tool-card" onclick="runTool('pdf_split')">
                 <span class="tool-icon">✂️</span>
@@ -193,6 +216,11 @@
                 <div class="tool-name">Take Note</div>
                 <div class="tool-desc">Quickly jot down your thoughts</div>
             </div>
+            <div class="tool-card" onclick="runTool('web_terminal')">
+                <span class="tool-icon">💻</span>
+                <div class="tool-name">Web Terminal</div>
+                <div class="tool-desc">Access full terminal environment</div>
+            </div>
         </div>
 
         <div style="text-align: center; margin-top: 50px; padding-top: 20px; border-top: 2px solid #ade8f4;">
@@ -209,6 +237,24 @@
         var backend;
         new QWebChannel(qt.webChannelTransport, function (channel) {
             backend = channel.objects.backend;
+            if (backend.toolDownloaded) {
+                backend.toolDownloaded.connect(function(name, success) {
+                    let btn = document.getElementById("dl-btn-" + name);
+                    if (btn) {
+                        if (success) {
+                            btn.innerHTML = "✅ Downloaded";
+                            btn.style.background = "#d4edda";
+                            btn.style.borderColor = "#c3e6cb";
+                            btn.style.color = "#155724";
+                        } else {
+                            btn.innerHTML = "❌ Failed";
+                            btn.style.background = "#f8d7da";
+                            btn.style.borderColor = "#f5c6cb";
+                            btn.style.color = "#721c24";
+                        }
+                    }
+                });
+            }
         });
 
         function runTool(name) {
@@ -218,6 +264,37 @@
                 console.error("Backend not connected");
             }
         }
+
+        function downloadTool(event, name) {
+            event.stopPropagation();
+            if (backend && backend.download_tool) {
+                let btn = event.target;
+                btn.innerHTML = "⏳ Downloading...";
+                btn.style.background = "#e9ecef";
+                btn.style.borderColor = "#dee2e6";
+                btn.style.color = "#6c757d";
+                backend.download_tool(name);
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.querySelectorAll('.tool-card').forEach(card => {
+                let onclickAttr = card.getAttribute('onclick');
+                let toolName = "unknown";
+                if (onclickAttr && onclickAttr.includes("runTool('")) {
+                    toolName = onclickAttr.split("runTool('")[1].split("')")[0];
+                } else if (onclickAttr && onclickAttr.includes(".href=")) {
+                    toolName = "ai_reader";
+                }
+                
+                let btn = document.createElement('button');
+                btn.id = 'dl-btn-' + toolName;
+                btn.className = 'dl-btn';
+                btn.innerHTML = '⬇️ Download Module';
+                btn.onclick = (e) => downloadTool(e, toolName);
+                card.appendChild(btn);
+            });
+        });
     </script>
 </body>
 </html>
