@@ -1120,14 +1120,21 @@ class Main(QMainWindow):
 
     def _do_translate(self, text, lang_code, result_box):
         result_box.setPlainText("Translating…")
-        def worker():
-            try:
-                from tools.translate import translate_text
-                translated = translate_text(text, lang_code)
-                QTimer.singleShot(0, lambda: result_box.setPlainText(translated))
-            except Exception as exc:
-                QTimer.singleShot(0, lambda e=exc: result_box.setPlainText(f"Error: {e}"))
-        threading.Thread(target=worker, daemon=True).start()
+        from PySide6.QtCore import QThread, Signal
+        class Worker(QThread):
+            res = Signal(str)
+            err = Signal(str)
+            def run(self):
+                try:
+                    from tools.translate import translate_text
+                    translated = translate_text(text, lang_code)
+                    self.res.emit(translated)
+                except Exception as exc:
+                    self.err.emit(str(exc))
+        self._trans_worker = Worker()
+        self._trans_worker.res.connect(result_box.setPlainText)
+        self._trans_worker.err.connect(lambda e: result_box.setPlainText(f"Error: {e}"))
+        self._trans_worker.start()
 
 
     def _open_transcript(self):
@@ -1162,17 +1169,23 @@ class Main(QMainWindow):
             fetch_btn.setEnabled(False)
             result_box.setPlainText("Loading…")
             
-            def worker():
-                try:
-                    from tools.youtube_transcript import get_youtube_transcript
-                    text = get_youtube_transcript(url)
-                    QTimer.singleShot(0, lambda: result_box.setPlainText(text or "No transcript found."))
-                except Exception as exc:
-                    QTimer.singleShot(0, lambda e=exc: result_box.setPlainText(f"Error: {e}"))
-                finally:
-                    QTimer.singleShot(0, lambda: fetch_btn.setEnabled(True))
+            from PySide6.QtCore import QThread, Signal
+            class Worker(QThread):
+                res = Signal(str)
+                err = Signal(str)
+                def run(self):
+                    try:
+                        from tools.youtube_transcript import get_youtube_transcript
+                        text = get_youtube_transcript(url)
+                        self.res.emit(text or "No transcript found.")
+                    except Exception as exc:
+                        self.err.emit(str(exc))
             
-            threading.Thread(target=worker, daemon=True).start()
+            self._fetch_worker = Worker()
+            self._fetch_worker.res.connect(result_box.setPlainText)
+            self._fetch_worker.err.connect(lambda e: result_box.setPlainText(f"Error: {e}"))
+            self._fetch_worker.finished.connect(lambda: fetch_btn.setEnabled(True))
+            self._fetch_worker.start()
 
         fetch_btn.clicked.connect(do_fetch)
         dlg.exec()
@@ -1225,20 +1238,27 @@ class Main(QMainWindow):
         def do_weather():
             city = city_input.text().strip() or "Dhaka"
             res.setText("Loading…")
-            def worker():
-                try:
-                    from tools.knowledge_hub import get_weather_data
-                    w = get_weather_data(city)
-                    if "error" in w:
-                        QTimer.singleShot(0, lambda: res.setText(w["error"]))
-                    else:
-                        txt = (f"<b>{w['city']}</b>: {w['temperature']}°C\n"
-                               f"Wind: {w['windspeed']} km/h\n"
-                               f"Time: {w['time']}")
-                        QTimer.singleShot(0, lambda t=txt: res.setText(t))
-                except Exception as exc:
-                    QTimer.singleShot(0, lambda e=exc: res.setText(f"Error: {e}"))
-            threading.Thread(target=worker, daemon=True).start()
+            from PySide6.QtCore import QThread, Signal
+            class Worker(QThread):
+                res_sig = Signal(str)
+                err_sig = Signal(str)
+                def run(self):
+                    try:
+                        from tools.knowledge_hub import get_weather_data
+                        w = get_weather_data(city)
+                        if "error" in w:
+                            self.res_sig.emit(w["error"])
+                        else:
+                            txt = (f"<b>{w['city']}</b>: {w['temperature']}°C\n"
+                                   f"Wind: {w['windspeed']} km/h\n"
+                                   f"Time: {w['time']}")
+                            self.res_sig.emit(txt)
+                    except Exception as exc:
+                        self.err_sig.emit(f"Error: {exc}")
+            self._weather_worker = Worker()
+            self._weather_worker.res_sig.connect(res.setText)
+            self._weather_worker.err_sig.connect(res.setText)
+            self._weather_worker.start()
 
         city_input.returnPressed.connect(do_weather)
         dlg.exec()
@@ -2139,17 +2159,20 @@ class Main(QMainWindow):
         def update_status():
             ip_display.setText("Fetching…")
             conn_display.setText("Checking…")
-            
-            def run():
-                ip = get_current_ip()
-                connected = check_connectivity()
-                def ui_update():
-                    ip_display.setText(ip)
-                    conn_display.setText("Connected ✅" if connected else "Disconnected ❌")
-                    conn_display.setStyleSheet("color: #023e8a;")
-                QTimer.singleShot(0, ui_update)
-            
-            threading.Thread(target=run, daemon=True).start()
+            from PySide6.QtCore import QThread, Signal
+            class Worker(QThread):
+                res = Signal(str, bool)
+                def run(self):
+                    ip = get_current_ip()
+                    connected = check_connectivity()
+                    self.res.emit(ip, connected)
+            self._status_worker = Worker()
+            def on_res(ip, connected):
+                ip_display.setText(ip)
+                conn_display.setText("Connected ✅" if connected else "Disconnected ❌")
+                conn_display.setStyleSheet("color: #023e8a;")
+            self._status_worker.res.connect(on_res)
+            self._status_worker.start()
 
         def populate_list():
             proxy_list.clear()
@@ -2163,13 +2186,14 @@ class Main(QMainWindow):
             p = item.text()
             item.setText(f"{p} (Testing…)")
             
-            def run():
-                working = is_proxy_working(p)
-                def ui_update():
-                    item.setText(f"{p} ({'Working ✅' if working else 'Failed ❌'})")
-                QTimer.singleShot(0, ui_update)
-            
-            threading.Thread(target=run, daemon=True).start()
+            from PySide6.QtCore import QThread, Signal
+            class Worker(QThread):
+                res = Signal(bool)
+                def run(self):
+                    self.res.emit(is_proxy_working(p))
+            self._test_worker = Worker()
+            self._test_worker.res.connect(lambda working: item.setText(f"{p} ({'Working ✅' if working else 'Failed ❌'})"))
+            self._test_worker.start()
 
         def do_apply_proxy(p):
             s = QSettings("SwordFish", "Browser")
@@ -2188,22 +2212,32 @@ class Main(QMainWindow):
             pkexec = shutil.which("pkexec") or shutil.which("sudo") or ""
             mac_status.setText("Running spoof script…")
             
-            def run():
-                script = os.path.join(ROOT, "utils", "network_fix.py")
-                try:
-                    r = subprocess.run(
-                        [pkexec, sys.executable, script, "--iface", iface],
-                        capture_output=True, text=True, timeout=30
-                    )
-                    if r.returncode == 0:
-                        QTimer.singleShot(0, lambda: mac_status.setText(f"✅ Success on {iface}. Reconnecting…"))
-                        QTimer.singleShot(0, update_status)
-                    else:
-                        QTimer.singleShot(0, lambda: mac_status.setText(f"❌ Failed: {r.stderr.strip()}"))
-                except Exception as exc:
-                    QTimer.singleShot(0, lambda e=exc: mac_status.setText(f"❌ Error: {e}"))
-            
-            threading.Thread(target=run, daemon=True).start()
+            from PySide6.QtCore import QThread, Signal
+            class Worker(QThread):
+                success = Signal()
+                fail = Signal(str)
+                err = Signal(str)
+                def run(self):
+                    script = os.path.join(ROOT, "utils", "network_fix.py")
+                    try:
+                        r = subprocess.run(
+                            [pkexec, sys.executable, script, "--iface", iface],
+                            capture_output=True, text=True, timeout=30
+                        )
+                        if r.returncode == 0:
+                            self.success.emit()
+                        else:
+                            self.fail.emit(r.stderr.strip())
+                    except Exception as exc:
+                        self.err.emit(str(exc))
+            self._spoof_worker = Worker()
+            def on_success():
+                mac_status.setText(f"✅ Success on {iface}. Reconnecting…")
+                update_status()
+            self._spoof_worker.success.connect(on_success)
+            self._spoof_worker.fail.connect(lambda msg: mac_status.setText(f"❌ Failed: {msg}"))
+            self._spoof_worker.err.connect(lambda msg: mac_status.setText(f"❌ Error: {msg}"))
+            self._spoof_worker.start()
 
         def detect_iface():
             try:

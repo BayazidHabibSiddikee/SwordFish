@@ -38,7 +38,7 @@ def untar_file(tar_path, extract_to):
             if not member_path.startswith(extract_to):
                 raise Exception("Path traversal attempt detected")
             if member.issym() or member.islnk():
-                link_path = os.path.abspath(os.path.join(extract_to, member.linkname))
+                link_path = os.path.abspath(os.path.join(os.path.dirname(member_path), member.linkname))
                 if not link_path.startswith(extract_to):
                     raise Exception("Symlink path traversal attempt detected")
         tar.extractall(extract_to)
@@ -55,6 +55,11 @@ def seven_zip_files(file_paths, output_path):
 def unseven_zip_file(seven_zip_path, extract_to):
     if not HAS_PY7ZR:
         raise ImportError("py7zr is not installed. Please install it with 'pip install py7zr'")
+    extract_to = os.path.abspath(extract_to)
     with py7zr.SevenZipFile(seven_zip_path, 'r') as archive:
+        for name in archive.getnames():
+            member_path = os.path.abspath(os.path.join(extract_to, name))
+            if not member_path.startswith(extract_to):
+                raise Exception("Path traversal attempt detected")
         archive.extractall(extract_to)
     return extract_to

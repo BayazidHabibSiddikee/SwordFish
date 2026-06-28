@@ -24,3 +24,8 @@ browser_profile/
 venv/
 ENV/
 .env/
+
+__pypackages__/
+.venv/
+*.spec~
+

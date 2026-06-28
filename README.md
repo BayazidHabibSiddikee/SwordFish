@@ -27,7 +27,6 @@ Access professional-grade tools directly from the browser's "🔧 Tools" menu:
 *   **Smart Features**: Web Search, Weather updates, QR Code Generator, and secure Note Taker.
 
 ### 🛡️ Security & Integrity
-*   **Integrity Lock**: A unique self-verification system that protects core files (`src/`, `icon.png`, `qrcode.png`) using a secret cipher. Unauthorized modifications trigger an automatic lockdown.
 *   **Network Security**: Built-in Public IP display, Connectivity tester, and Proxy management.
 *   **Privacy Tools**: MAC Address spoofing (Linux) and cookie management.
 
@@ -61,7 +60,7 @@ chmod +x install.sh
 ## 📁 Project Structure
 *   `src/`: Core browser engine and UI logic.
 *   `tools/`: 20+ specialized productivity modules.
-*   `utils/`: Security (Adblock, Integrity), Network, and TTS utilities.
+*   `utils/`: Network and TTS utilities.
 *   `assets/`: Icons and static resources.
 
 ---
