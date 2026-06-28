@@ -34,8 +34,13 @@ def untar_file(tar_path, extract_to):
     extract_to = os.path.abspath(extract_to)
     with tarfile.open(tar_path, 'r:*') as tar:
         for member in tar.getmembers():
-            if not os.path.abspath(os.path.join(extract_to, member.name)).startswith(extract_to):
+            member_path = os.path.abspath(os.path.join(extract_to, member.name))
+            if not member_path.startswith(extract_to):
                 raise Exception("Path traversal attempt detected")
+            if member.issym() or member.islnk():
+                link_path = os.path.abspath(os.path.join(extract_to, member.linkname))
+                if not link_path.startswith(extract_to):
+                    raise Exception("Symlink path traversal attempt detected")
         tar.extractall(extract_to)
     return extract_to
 

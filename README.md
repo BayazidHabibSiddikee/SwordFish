@@ -66,11 +66,7 @@ chmod +x install.sh
 
 ---
 
-## 🔒 Security Notice
-SwordFish uses a **File Integrity System**. To intentionally update the browser after modifying code in `src/`, you must re-generate the security manifest:
-```bash
-python3 utils/integrity.py
-```
+
 
 ---
 *Built for power users who demand privacy and productivity.*

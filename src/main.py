@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (QApplication, QMainWindow, QToolBar, QLineEdit,
                                QMenu, QInputDialog, QMessageBox, QTabWidget,
                                QWidget, QVBoxLayout, QDialog, QLabel,
                                QPushButton, QTextEdit, QFormLayout,
-                               QComboBox, QSpinBox, QHBoxLayout, QProgressBar,
+                               QComboBox, QSpinBox, QDoubleSpinBox, QHBoxLayout, QProgressBar,
                                 QFileDialog, QListWidget, QListWidgetItem,
                                 QFrame, QSplitter)
 from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -1119,24 +1119,16 @@ class Main(QMainWindow):
         dlg.exec()
 
     def _do_translate(self, text, lang_code, result_box):
-        try:
-            from tools.translate import translate_text
-            translated = translate_text(text, lang_code)
-            result_box.setPlainText(translated)
-        except Exception as e:
-            result_box.setPlainText(f"Error: {e}")
+        result_box.setPlainText("Translating…")
+        def worker():
+            try:
+                from tools.translate import translate_text
+                translated = translate_text(text, lang_code)
+                QTimer.singleShot(0, lambda: result_box.setPlainText(translated))
+            except Exception as exc:
+                QTimer.singleShot(0, lambda e=exc: result_box.setPlainText(f"Error: {e}"))
+        threading.Thread(target=worker, daemon=True).start()
 
-    def _fill_yt_url(self, url_input):
-        br = self.current_browser()
-        if not br: return
-        url = br.url().toString()
-        from urllib.parse import urlparse, parse_qs
-        parsed = urlparse(url)
-        if "youtube.com" in parsed.netloc or "youtu.be" in parsed.netloc:
-            url_input.setText(url)
-            QMessageBox.information(self, "URL Filled", "Current YouTube URL detected!")
-        else:
-            QMessageBox.warning(self, "Not YouTube", "Current page is not a YouTube video.")
 
     def _open_transcript(self):
         dlg = QDialog(self)
@@ -1169,12 +1161,18 @@ class Main(QMainWindow):
             if not url: return
             fetch_btn.setEnabled(False)
             result_box.setPlainText("Loading…")
-            try:
-                from tools.youtube_transcript import get_youtube_transcript
-                text = get_youtube_transcript(url)
-                result_box.setPlainText(text or "No transcript found.")
-            except Exception as e: result_box.setPlainText(f"Error: {e}")
-            finally: fetch_btn.setEnabled(True)
+            
+            def worker():
+                try:
+                    from tools.youtube_transcript import get_youtube_transcript
+                    text = get_youtube_transcript(url)
+                    QTimer.singleShot(0, lambda: result_box.setPlainText(text or "No transcript found."))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: result_box.setPlainText(f"Error: {e}"))
+                finally:
+                    QTimer.singleShot(0, lambda: fetch_btn.setEnabled(True))
+            
+            threading.Thread(target=worker, daemon=True).start()
 
         fetch_btn.clicked.connect(do_fetch)
         dlg.exec()
@@ -1226,15 +1224,21 @@ class Main(QMainWindow):
 
         def do_weather():
             city = city_input.text().strip() or "Dhaka"
-            try:
-                from tools.knowledge_hub import get_weather_data
-                w = get_weather_data(city)
-                if "error" in w: res.setText(w["error"])
-                else:
-                    res.setText(f"<b>{w['city']}</b>: {w['temperature']}°C\n"
+            res.setText("Loading…")
+            def worker():
+                try:
+                    from tools.knowledge_hub import get_weather_data
+                    w = get_weather_data(city)
+                    if "error" in w:
+                        QTimer.singleShot(0, lambda: res.setText(w["error"]))
+                    else:
+                        txt = (f"<b>{w['city']}</b>: {w['temperature']}°C\n"
                                f"Wind: {w['windspeed']} km/h\n"
                                f"Time: {w['time']}")
-            except Exception as e: res.setText(f"Error: {e}")
+                        QTimer.singleShot(0, lambda t=txt: res.setText(t))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: res.setText(f"Error: {e}"))
+            threading.Thread(target=worker, daemon=True).start()
 
         city_input.returnPressed.connect(do_weather)
         dlg.exec()
@@ -2008,10 +2012,11 @@ class Main(QMainWindow):
 
     def _open_web_terminal(self):
         import subprocess, os, sys
-        script_path = "/run/media/sword/F9EE-6FF0/windows/Study/Persona/Books/Extra_learnings/web_based_terminal/terminal.py"
-        if not hasattr(self, "web_terminal_proc") or not self.web_terminal_proc or self.web_terminal_proc.poll() is not None:
-            self.web_terminal_proc = subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
-        self._new_tab("http://localhost:8090", "Web Terminal")
+        script_path = os.path.expanduser("~/web_based_terminal/terminal.py")
+        if os.path.exists(script_path):
+            if not hasattr(self, "web_terminal_proc") or not self.web_terminal_proc or self.web_terminal_proc.poll() is not None:
+                self.web_terminal_proc = subprocess.Popen([sys.executable, script_path], cwd=os.path.dirname(script_path))
+        self._new_tab("http://localhost:8090")
 
     def _open_note_taker(self):
         dlg = QDialog(self)
@@ -2076,17 +2081,17 @@ class Main(QMainWindow):
         status_layout = QVBoxLayout(status_group)
         
         ip_layout = QHBoxLayout()
-        self.ip_display = QLabel("Fetching IP…")
-        self.ip_display.setStyleSheet("font-size:18px; font-weight:bold; color: #0077b6;")
+        ip_display = QLabel("Fetching IP…")
+        ip_display.setStyleSheet("font-size:18px; font-weight:bold; color: #0077b6;")
         ip_layout.addWidget(QLabel("🌐 Public IP:"))
-        ip_layout.addWidget(self.ip_display)
+        ip_layout.addWidget(ip_display)
         ip_layout.addStretch()
         status_layout.addLayout(ip_layout)
 
         conn_layout = QHBoxLayout()
-        self.conn_display = QLabel("Checking…")
+        conn_display = QLabel("Checking…")
         conn_layout.addWidget(QLabel("📡 Connectivity:"))
-        conn_layout.addWidget(self.conn_display)
+        conn_layout.addWidget(conn_display)
         conn_layout.addStretch()
         status_layout.addLayout(conn_layout)
         
@@ -2132,15 +2137,17 @@ class Main(QMainWindow):
             spoof_btn = None
 
         def update_status():
-            self.ip_display.setText("Fetching…")
-            self.conn_display.setText("Checking…")
+            ip_display.setText("Fetching…")
+            conn_display.setText("Checking…")
             
             def run():
                 ip = get_current_ip()
                 connected = check_connectivity()
-                self.ip_display.setText(ip)
-                self.conn_display.setText("Connected ✅" if connected else "Disconnected ❌")
-                self.conn_display.setStyleSheet("color: #023e8a;")
+                def ui_update():
+                    ip_display.setText(ip)
+                    conn_display.setText("Connected ✅" if connected else "Disconnected ❌")
+                    conn_display.setStyleSheet("color: #023e8a;")
+                QTimer.singleShot(0, ui_update)
             
             threading.Thread(target=run, daemon=True).start()
 
@@ -2158,7 +2165,9 @@ class Main(QMainWindow):
             
             def run():
                 working = is_proxy_working(p)
-                item.setText(f"{p} ({'Working ✅' if working else 'Failed ❌'})")
+                def ui_update():
+                    item.setText(f"{p} ({'Working ✅' if working else 'Failed ❌'})")
+                QTimer.singleShot(0, ui_update)
             
             threading.Thread(target=run, daemon=True).start()
 
@@ -2187,12 +2196,12 @@ class Main(QMainWindow):
                         capture_output=True, text=True, timeout=30
                     )
                     if r.returncode == 0:
-                        mac_status.setText(f"✅ Success on {iface}. Reconnecting…")
-                        update_status()
+                        QTimer.singleShot(0, lambda: mac_status.setText(f"✅ Success on {iface}. Reconnecting…"))
+                        QTimer.singleShot(0, update_status)
                     else:
-                        mac_status.setText(f"❌ Failed: {r.stderr.strip()}")
-                except Exception as e:
-                    mac_status.setText(f"❌ Error: {e}")
+                        QTimer.singleShot(0, lambda: mac_status.setText(f"❌ Failed: {r.stderr.strip()}"))
+                except Exception as exc:
+                    QTimer.singleShot(0, lambda e=exc: mac_status.setText(f"❌ Error: {e}"))
             
             threading.Thread(target=run, daemon=True).start()
 
