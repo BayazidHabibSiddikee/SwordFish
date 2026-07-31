@@ -753,26 +753,48 @@ void MainWindow::injectDarkMode() {
     // elements. Text is left at whatever the site sets so readability is preserved.
     // Images, video, canvas are completely untouched.
     QString css = R"CSS(
-/* ── Force dark color-scheme so browsers respect prefers-color-scheme ── */
+/* ── Force dark color-scheme ── */
 :root {
     color-scheme: dark !important;
     --sf-bg:       #0d1117 !important;
     --sf-surface:  #161b22 !important;
     --sf-surface2: #1c2128 !important;
     --sf-border:   #30363d !important;
-    --sf-text:     #e6edf3 !important;
-    --sf-muted:    #8b949e !important;
+    --sf-text:     #00d2ff !important;
+    --sf-muted:    #4fc3d4 !important;
     --sf-accent:   #00b4d8 !important;
 }
 
-/* ── Page background ── */
+/* ── Page background + default text cyan ── */
 html {
     background-color: #0d1117 !important;
-    color: #e6edf3 !important;
+    color: #00d2ff !important;
 }
 body {
     background-color: #0d1117 !important;
-    color: #e6edf3 !important;
+    color: #00d2ff !important;
+}
+
+/* ── All general text elements → cyan ── */
+p, h1, h2, h3, h4, h5, h6,
+li, dt, dd, caption, figcaption,
+label, legend, summary,
+span:not([class*="icon"]):not([class*="logo"]),
+div, td, th, blockquote, cite, q {
+    color: #00d2ff !important;
+}
+
+/* ── Links ── */
+a, a:visited, a:hover { color: #7ee8fa !important; }
+a:hover { color: #ffffff !important; }
+
+/* ── Headings slightly brighter ── */
+h1, h2, h3 { color: #a0f0ff !important; }
+
+/* ── Muted / secondary text ── */
+small, .muted, [class*="subtitle"], [class*="secondary"],
+[class*="description"], [class*="caption"], time, cite {
+    color: #4fc3d4 !important;
 }
 
 /* ── Common surface elements ── */
@@ -781,67 +803,77 @@ header, nav, footer, aside, main, section, article,
 [role="complementary"], [role="contentinfo"] {
     background-color: #161b22 !important;
     border-color: #30363d !important;
+    color: #00d2ff !important;
 }
 
-/* ── Sidebars, panels, cards, boxes ── */
-div, span, li, ul, ol, dl, dt, dd,
-[class*="sidebar"], [class*="panel"], [class*="card"],
-[class*="box"], [class*="container"], [class*="wrap"],
-[class*="widget"], [class*="banner"], [class*="modal"],
-[class*="dialog"], [class*="drawer"], [class*="sheet"],
-[class*="overlay"], [class*="popup"], [class*="tooltip"],
-[class*="header"], [class*="footer"], [class*="nav"],
-[class*="menu"], [class*="toolbar"], [class*="bar"],
-[id*="sidebar"], [id*="panel"], [id*="header"],
-[id*="footer"], [id*="nav"], [id*="menu"] {
-    background-color: inherit !important;
+/* ── Cards / panels / boxes ── */
+[class*="card"], [class*="panel"], [class*="box"],
+[class*="widget"], [class*="modal"], [class*="dialog"],
+[class*="drawer"], [class*="popup"], [class*="tooltip"],
+[class*="sidebar"], [class*="container"], [class*="wrap"],
+[id*="sidebar"], [id*="panel"] {
+    background-color: #161b22 !important;
     border-color: #30363d !important;
+    color: #00d2ff !important;
 }
 
-/* ── Inputs, buttons, selects ── */
-input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+/* ── Inputs / textarea / select ── */
+input:not([type="submit"]):not([type="button"]):not([type="reset"])
+    :not([type="checkbox"]):not([type="radio"])
+    :not([type="range"]):not([type="color"]),
 textarea, select {
     background-color: #161b22 !important;
-    color: #e6edf3 !important;
+    color: #00d2ff !important;
     border: 1px solid #30363d !important;
 }
-input::placeholder, textarea::placeholder {
-    color: #6e7681 !important;
-}
+input::placeholder, textarea::placeholder { color: #4fc3d4 !important; }
 
-/* ── Text — only override truly white/near-white backgrounds that would blind ── */
-p, h1, h2, h3, h4, h5, h6, li, td, th, label, span, a {
-    color: inherit;
+/* ── Buttons ── */
+button, [type="button"], [type="submit"], [type="reset"],
+[role="button"] {
+    background-color: #1c2128 !important;
+    color: #00d2ff !important;
+    border-color: #30363d !important;
+}
+button:hover, [role="button"]:hover {
+    background-color: #0a3040 !important;
+    color: #ffffff !important;
 }
 
 /* ── Tables ── */
 table { border-color: #30363d !important; }
-tr, th, td {
-    background-color: inherit !important;
+tr:nth-child(even) { background-color: #161b22 !important; }
+th { color: #a0f0ff !important; background-color: #1c2128 !important; }
+td { color: #00d2ff !important; border-color: #30363d !important; }
+
+/* ── Code ── */
+code, pre, kbd, samp {
+    background-color: #161b22 !important;
+    color: #79c0ff !important;
     border-color: #30363d !important;
 }
-tr:nth-child(even) { background-color: #161b22 !important; }
 
 /* ── YouTube specific ── */
 ytd-app, #page-manager, ytd-browse, ytd-search,
 #masthead, #masthead-container, ytd-masthead,
 ytd-guide-renderer, #guide-inner-content,
-ytd-mini-guide-renderer,
-ytd-watch-flexy, #secondary, #primary,
+ytd-mini-guide-renderer, ytd-watch-flexy,
+#secondary, #primary,
 ytd-rich-grid-renderer, ytd-section-list-renderer,
 ytd-two-column-browse-results-renderer {
     background-color: #0d1117 !important;
-    color: #e6edf3 !important;
+    color: #00d2ff !important;
 }
-ytd-thumbnail, ytd-playlist-thumbnail { background: transparent !important; }
 yt-formatted-string, .ytd-video-primary-info-renderer,
-.ytd-channel-name, #video-title, #title {
-    color: #e6edf3 !important;
+.ytd-channel-name, #video-title, #title,
+ytd-channel-name a, .yt-simple-endpoint {
+    color: #00d2ff !important;
 }
 #description, ytd-expander {
     background-color: #161b22 !important;
-    color: #c9d1d9 !important;
+    color: #4fc3d4 !important;
 }
+ytd-thumbnail, ytd-playlist-thumbnail { background: transparent !important; }
 
 /* ── Video & images — NEVER touch ── */
 video, img, canvas, picture, svg image,
@@ -853,39 +885,28 @@ iframe, embed, object {
 /* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #0d1117; }
-::-webkit-scrollbar-thumb {
-    background: #30363d;
-    border-radius: 4px;
-}
+::-webkit-scrollbar-thumb { background: #1e4a5a; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #00b4d8; }
-
-/* ── Links ── */
-a:not([class]) { color: #58a6ff !important; }
-a:visited:not([class]) { color: #bc8cff !important; }
-
-/* ── Code blocks ── */
-code, pre, kbd, samp {
-    background-color: #161b22 !important;
-    color: #79c0ff !important;
-    border-color: #30363d !important;
-}
 )CSS";
 
     QString script = QString(R"JS(
 (function() {
+    // Guard: sandboxed frames or non-HTML documents have no documentElement
+    if (!document || !document.documentElement) return;
+
     const STYLE_ID = '__sf_darkmode__';
     if (document.getElementById(STYLE_ID)) return;
 
-    // Apply dark bg immediately before DOM loads to avoid white flash
+    // Apply dark bg immediately to avoid white flash
     document.documentElement.style.backgroundColor = '#0d1117';
-    document.documentElement.style.color = '#e6edf3';
+    document.documentElement.style.color = '#00d2ff';
 
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = %1;
     (document.head || document.documentElement).appendChild(style);
 
-    // Re-apply on dynamic content changes (SPAs like YouTube)
+    // Re-apply on SPA navigation (YouTube etc.)
     let scheduled = false;
     new MutationObserver(() => {
         if (scheduled) return;
