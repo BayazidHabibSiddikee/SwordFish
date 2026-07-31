@@ -748,38 +748,126 @@ void MainWindow::injectDarkMode() {
     // Remove any existing dark mode script first
     removeDarkMode();
 
-    // Smart dark mode CSS:
-    // - Turns page backgrounds/surfaces dark
-    // - Keeps images, videos, canvases untouched
-    // - Keeps existing text colors (only overrides very light text on dark bg)
-    // - Adds bluish-cyan tint to page UI elements
+    // Proper dark mode CSS — directly sets dark colors, NO invert filter.
+    // Strategy: use CSS custom properties + forced-colors override on background/surface
+    // elements. Text is left at whatever the site sets so readability is preserved.
+    // Images, video, canvas are completely untouched.
     QString css = R"CSS(
+/* ── Force dark color-scheme so browsers respect prefers-color-scheme ── */
 :root {
     color-scheme: dark !important;
+    --sf-bg:       #0d1117 !important;
+    --sf-surface:  #161b22 !important;
+    --sf-surface2: #1c2128 !important;
+    --sf-border:   #30363d !important;
+    --sf-text:     #e6edf3 !important;
+    --sf-muted:    #8b949e !important;
+    --sf-accent:   #00b4d8 !important;
 }
-html, body {
-    background-color: #06101e !important;
-}
-/* Invert everything except media */
+
+/* ── Page background ── */
 html {
-    filter: invert(1) hue-rotate(180deg);
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
 }
-/* Re-invert media so it looks normal */
-img, video, canvas, picture, svg,
-iframe[src*="youtube"], iframe[src*="youtu.be"],
-[class*="thumbnail"], [class*="Thumbnail"],
-.ytp-player-content, #player, .html5-video-container {
-    filter: invert(1) hue-rotate(180deg) !important;
+body {
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
 }
-/* Scrollbars */
+
+/* ── Common surface elements ── */
+header, nav, footer, aside, main, section, article,
+[role="banner"], [role="navigation"], [role="main"],
+[role="complementary"], [role="contentinfo"] {
+    background-color: #161b22 !important;
+    border-color: #30363d !important;
+}
+
+/* ── Sidebars, panels, cards, boxes ── */
+div, span, li, ul, ol, dl, dt, dd,
+[class*="sidebar"], [class*="panel"], [class*="card"],
+[class*="box"], [class*="container"], [class*="wrap"],
+[class*="widget"], [class*="banner"], [class*="modal"],
+[class*="dialog"], [class*="drawer"], [class*="sheet"],
+[class*="overlay"], [class*="popup"], [class*="tooltip"],
+[class*="header"], [class*="footer"], [class*="nav"],
+[class*="menu"], [class*="toolbar"], [class*="bar"],
+[id*="sidebar"], [id*="panel"], [id*="header"],
+[id*="footer"], [id*="nav"], [id*="menu"] {
+    background-color: inherit !important;
+    border-color: #30363d !important;
+}
+
+/* ── Inputs, buttons, selects ── */
+input:not([type="submit"]):not([type="button"]):not([type="reset"]):not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+textarea, select {
+    background-color: #161b22 !important;
+    color: #e6edf3 !important;
+    border: 1px solid #30363d !important;
+}
+input::placeholder, textarea::placeholder {
+    color: #6e7681 !important;
+}
+
+/* ── Text — only override truly white/near-white backgrounds that would blind ── */
+p, h1, h2, h3, h4, h5, h6, li, td, th, label, span, a {
+    color: inherit;
+}
+
+/* ── Tables ── */
+table { border-color: #30363d !important; }
+tr, th, td {
+    background-color: inherit !important;
+    border-color: #30363d !important;
+}
+tr:nth-child(even) { background-color: #161b22 !important; }
+
+/* ── YouTube specific ── */
+ytd-app, #page-manager, ytd-browse, ytd-search,
+#masthead, #masthead-container, ytd-masthead,
+ytd-guide-renderer, #guide-inner-content,
+ytd-mini-guide-renderer,
+ytd-watch-flexy, #secondary, #primary,
+ytd-rich-grid-renderer, ytd-section-list-renderer,
+ytd-two-column-browse-results-renderer {
+    background-color: #0d1117 !important;
+    color: #e6edf3 !important;
+}
+ytd-thumbnail, ytd-playlist-thumbnail { background: transparent !important; }
+yt-formatted-string, .ytd-video-primary-info-renderer,
+.ytd-channel-name, #video-title, #title {
+    color: #e6edf3 !important;
+}
+#description, ytd-expander {
+    background-color: #161b22 !important;
+    color: #c9d1d9 !important;
+}
+
+/* ── Video & images — NEVER touch ── */
+video, img, canvas, picture, svg image,
+iframe, embed, object {
+    filter: none !important;
+    opacity: 1 !important;
+}
+
+/* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #06101e; }
+::-webkit-scrollbar-track { background: #0d1117; }
 ::-webkit-scrollbar-thumb {
-    background: rgba(0, 180, 220, 0.45);
+    background: #30363d;
     border-radius: 4px;
 }
-::-webkit-scrollbar-thumb:hover {
-    background: rgba(0, 220, 255, 0.70);
+::-webkit-scrollbar-thumb:hover { background: #00b4d8; }
+
+/* ── Links ── */
+a:not([class]) { color: #58a6ff !important; }
+a:visited:not([class]) { color: #bc8cff !important; }
+
+/* ── Code blocks ── */
+code, pre, kbd, samp {
+    background-color: #161b22 !important;
+    color: #79c0ff !important;
+    border-color: #30363d !important;
 }
 )CSS";
 
@@ -787,17 +875,35 @@ iframe[src*="youtube"], iframe[src*="youtu.be"],
 (function() {
     const STYLE_ID = '__sf_darkmode__';
     if (document.getElementById(STYLE_ID)) return;
+
+    // Apply dark bg immediately before DOM loads to avoid white flash
+    document.documentElement.style.backgroundColor = '#0d1117';
+    document.documentElement.style.color = '#e6edf3';
+
     const style = document.createElement('style');
     style.id = STYLE_ID;
-    style.textContent = `%1`;
+    style.textContent = %1;
     (document.head || document.documentElement).appendChild(style);
+
+    // Re-apply on dynamic content changes (SPAs like YouTube)
+    let scheduled = false;
+    new MutationObserver(() => {
+        if (scheduled) return;
+        scheduled = true;
+        requestAnimationFrame(() => {
+            scheduled = false;
+            if (!document.getElementById(STYLE_ID)) {
+                (document.head || document.documentElement).appendChild(style);
+            }
+        });
+    }).observe(document.documentElement, { childList: true, subtree: false });
 })();
-)JS").arg(css);
+)JS").arg("`" + css + "`");
 
     auto *s = new QWebEngineScript();
     s->setName("sf_darkmode");
     s->setSourceCode(script);
-    s->setInjectionPoint(QWebEngineScript::DocumentReady);
+    s->setInjectionPoint(QWebEngineScript::DocumentCreation);
     s->setWorldId(QWebEngineScript::MainWorld);
     s->setRunsOnSubFrames(true);
     m_profile->scripts()->insert(*s);
@@ -824,8 +930,8 @@ void MainWindow::removeDarkMode() {
 (function() {
     const el = document.getElementById('__sf_darkmode__');
     if (el) el.remove();
-    // Also reset html filter
-    document.documentElement.style.filter = '';
+    document.documentElement.style.backgroundColor = '';
+    document.documentElement.style.color = '';
 })();
 )JS";
     for (int i = 0; i < m_tabs->count(); ++i) {
