@@ -779,8 +779,7 @@ body {
 p, h1, h2, h3, h4, h5, h6,
 li, dt, dd, caption, figcaption,
 label, legend, summary,
-span:not([class*="icon"]):not([class*="logo"]),
-div, td, th, blockquote, cite, q {
+blockquote, cite, q {
     color: #00d2ff !important;
 }
 
@@ -810,7 +809,7 @@ header, nav, footer, aside, main, section, article,
 [class*="card"], [class*="panel"], [class*="box"],
 [class*="widget"], [class*="modal"], [class*="dialog"],
 [class*="drawer"], [class*="popup"], [class*="tooltip"],
-[class*="sidebar"], [class*="container"], [class*="wrap"],
+[class*="sidebar"],
 [id*="sidebar"], [id*="panel"] {
     background-color: #161b22 !important;
     border-color: #30363d !important;
@@ -851,6 +850,39 @@ code, pre, kbd, samp {
     background-color: #161b22 !important;
     color: #79c0ff !important;
     border-color: #30363d !important;
+}
+
+/* ── VIDEO PLAYER EXCLUSION — must come before all background rules ── */
+/* YouTube player container and everything inside it must NEVER get
+   a dark background or color override — it blocks the video render */
+#movie_player,
+.html5-video-player,
+.html5-video-container,
+.video-stream,
+.ytp-player-content,
+.ytp-chrome-bottom,
+.ytp-chrome-top,
+.ytp-gradient-bottom,
+.ytp-gradient-top,
+.ytp-cued-thumbnail-overlay,
+.ytp-spinner,
+#player, #player-container,
+#player-container-id,
+#player-theater-container,
+ytd-player,
+ytd-watch-flexy #player,
+.ytd-watch-flexy,
+[class*="videoPlayer"],
+[class*="video-player"],
+[class*="VideoPlayer"],
+[id*="player"],
+video,
+video * {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: inherit !important;
+    filter: none !important;
+    opacity: 1 !important;
 }
 
 /* ── YouTube specific ── */
