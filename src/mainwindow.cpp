@@ -926,7 +926,7 @@ iframe, embed, object {
     s->setSourceCode(script);
     s->setInjectionPoint(QWebEngineScript::DocumentCreation);
     s->setWorldId(QWebEngineScript::MainWorld);
-    s->setRunsOnSubFrames(true);
+    s->setRunsOnSubFrames(false);  // main frame only — subframes are often sandboxed
     m_profile->scripts()->insert(*s);
 
     // Also apply to already-open tabs
