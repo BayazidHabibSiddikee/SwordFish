@@ -3,6 +3,8 @@
 #include "styles.h"
 #include "folder_picker.h"
 #include "file_picker.h"
+
+#include <QWebEngineGlobalSettings>
 #include "tools/pdf_tools.h"
 #include "tools/doc_tools.h"
 #include "tools/office_tools.h"
@@ -147,6 +149,8 @@ MainWindow::MainWindow(bool isPrivate, QWidget *parent)
     m_configDir = configDir();
     m_dataFile = m_configDir + "/data.json";
 
+    setupDns();
+
     QString appDir = QCoreApplication::applicationDirPath();
     m_home = m_settings->value("home_url", "https://duckduckgo.com").toString();
     // If a legacy file:// home.html path was saved by the old Python version, reset it
@@ -205,6 +209,33 @@ QString MainWindow::configDir() {
     QString path = base + "/SwordFish";
     QDir().mkpath(path);
     return path;
+}
+
+void MainWindow::setupDns() {
+    // DNS provider templates — empty string = system DNS
+    static const QMap<QString, QString> k_providers = {
+        { "AdGuard",    "https://dns.adguard-dns.com/dns-query" },
+        { "Cloudflare", "https://cloudflare-dns.com/dns-query"  },
+        { "NextDNS",    "https://dns.nextdns.io/dns-query"      },
+        { "Google",     "https://dns.google/dns-query"          },
+        { "System",     ""                                       },
+    };
+
+    QString provider = m_settings->value("dns_provider", "AdGuard").toString();
+    if (!k_providers.contains(provider)) provider = "AdGuard";
+
+    QString tmpl = k_providers.value(provider);
+
+    QWebEngineGlobalSettings::DnsMode mode;
+    if (tmpl.isEmpty()) {
+        mode.secureMode     = QWebEngineGlobalSettings::SecureDnsMode::SystemOnly;
+        mode.serverTemplates = {};
+    } else {
+        mode.secureMode      = QWebEngineGlobalSettings::SecureDnsMode::SecureWithFallback;
+        mode.serverTemplates = { tmpl };
+    }
+
+    QWebEngineGlobalSettings::setDnsMode(mode);
 }
 
 void MainWindow::loadData() {
@@ -618,6 +649,32 @@ void MainWindow::showSettingsMenu() {
                                      QString("Set to %1").arg(level));
         });
         blockMenu->addAction(a);
+    }
+
+    menu.addSeparator();
+
+    // ── DNS over HTTPS ──
+    auto *dnsMenu = menu.addMenu("\U0001f512  DNS over HTTPS");
+    struct DnsEntry { QString label; QString key; };
+    const QList<DnsEntry> dnsProviders = {
+        { "AdGuard (default)",  "AdGuard"    },
+        { "Cloudflare",         "Cloudflare" },
+        { "NextDNS",            "NextDNS"    },
+        { "Google",             "Google"     },
+        { "System (no DoH)",    "System"     },
+    };
+    QString currentDns = m_settings->value("dns_provider", "AdGuard").toString();
+    for (const auto &entry : dnsProviders) {
+        auto *a = new QAction(entry.label, this);
+        a->setCheckable(true);
+        a->setChecked(entry.key == currentDns);
+        connect(a, &QAction::triggered, this, [this, entry]() {
+            m_settings->setValue("dns_provider", entry.key);
+            setupDns();
+            QMessageBox::information(this, "DNS",
+                QString("DNS set to: %1\nTakes effect for new connections.").arg(entry.label));
+        });
+        dnsMenu->addAction(a);
     }
 
     menu.addSeparator();

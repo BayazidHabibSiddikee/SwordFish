@@ -97,6 +97,7 @@ private:
     void removeDarkMode();
     void restoreTabs();
     void applyTheme();
+    void setupDns();
     QWebEngineView *currentBrowser();
     void updateTabTitle(TabWidget *tw, QWebEngineView *br, const QString &title);
     void recordHistory(const QUrl &url);

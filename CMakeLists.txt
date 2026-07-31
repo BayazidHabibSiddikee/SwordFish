@@ -9,7 +9,7 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS
     Core Gui Widgets Network
-    WebEngineWidgets WebChannel
+    WebEngineCore WebEngineWidgets WebChannel
 )
 
 find_package(CURL REQUIRED)
@@ -72,6 +72,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Gui
     Qt6::Widgets
     Qt6::Network
+    Qt6::WebEngineCore
     Qt6::WebEngineWidgets
     Qt6::WebChannel
     CURL::libcurl
