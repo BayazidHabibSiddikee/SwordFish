@@ -1,0 +1,12 @@
+[Desktop Entry]
+Version=2.0
+Type=Application
+Name=SwordFish
+GenericName=SwordFish Browser
+Comment=Privacy-first power-user browser (C++)
+Exec=/home/sword/SwordFish/swordfish_cpp.sh
+Icon=/home/sword/SwordFish/icon.png
+Terminal=false
+Categories=Network;WebBrowser;Qt;
+Keywords=browser;web;privacy;
+StartupNotify=true
