@@ -1063,14 +1063,17 @@ textarea, select {
 }
 input::placeholder, textarea::placeholder { color: #5c6370 !important; }
 
-/* ── Buttons ── */
-button, [type="button"], [type="submit"], [type="reset"],
-[role="button"] {
+/* ── Buttons (exclude player + Shorts) ── */
+button:not(ytd-reel-video-renderer button):not(.ytp-button):not([class*="ytp-"]):not([id*="player"] button),
+[type="button"]:not(ytd-reel-video-renderer [type="button"]),
+[type="submit"], [type="reset"],
+[role="button"]:not(ytd-reel-video-renderer [role="button"]):not(.ytp-button) {
     background-color: #3e4451 !important;
     color: #abb2bf !important;
     border-color: #4b5263 !important;
 }
-button:hover, [role="button"]:hover {
+button:not(ytd-reel-video-renderer button):not(.ytp-button):hover,
+[role="button"]:not(ytd-reel-video-renderer [role="button"]):not(.ytp-button):hover {
     background-color: #4b5263 !important;
     color: #abb2bf !important;
 }
@@ -1440,6 +1443,51 @@ article[role="article"] {
 .post-text, .s-prose, .post-layout {
     background-color: #282c34 !important;
     color: #abb2bf !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   YOUTUBE SHORTS — full exclusion, everything transparent/inherited
+   Shorts renders its own dark UI — our overrides break it
+   ═══════════════════════════════════════════════════════════════════ */
+ytd-reel-video-renderer,
+ytd-shorts,
+ytd-shorts #shorts-container,
+ytd-reel-shelf-renderer,
+ytd-shorts-lockup-view-model,
+ytd-shorts-lockup-view-model-v2,
+#shorts-inner-container,
+#shorts-container,
+ytd-shorts ytd-reel-video-renderer,
+ytd-reel-video-renderer #player-container,
+ytd-reel-video-renderer ytd-player,
+ytd-reel-video-renderer #shorts-player,
+ytd-reel-video-renderer .ytd-reel-video-renderer,
+/* Shorts navigation arrows + overlay UI */
+ytd-reel-video-renderer .navigation-button,
+ytd-reel-video-renderer button,
+ytd-reel-video-renderer [role="button"],
+ytd-reel-video-renderer #channel-info,
+ytd-reel-video-renderer #actions,
+ytd-reel-video-renderer #subscribe-button,
+ytd-reel-video-renderer yt-formatted-string,
+ytd-reel-video-renderer span,
+ytd-reel-video-renderer div,
+ytd-reel-video-renderer #overlay,
+ytd-shorts #overlay,
+.ytShortsVideoRenderer,
+.reel-player-overlay-renderer,
+ytd-reel-item-renderer,
+/* Shorts sidebar thumbnails on homepage */
+ytd-rich-shelf-renderer[is-shorts],
+ytd-rich-shelf-renderer[is-shorts] *,
+ytd-shorts-lockup-view-model *,
+ytd-shorts-lockup-view-model-v2 * {
+    background-color: transparent !important;
+    background: transparent !important;
+    color: inherit !important;
+    filter: none !important;
+    opacity: 1 !important;
+    border-color: transparent !important;
 }
 
 /* ── Video & images — NEVER touch ── */
