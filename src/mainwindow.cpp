@@ -1455,33 +1455,6 @@ article[role="article"] {
     color: #abb2bf !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   YOUTUBE SHORTS — high-specificity reset using element chain
-   These come LAST in the stylesheet so they win the cascade.
-   Using element+element specificity to beat the broad rules above.
-   ═══════════════════════════════════════════════════════════════════ */
-ytd-app ytd-reel-video-renderer,
-ytd-app ytd-reel-video-renderer *,
-ytd-app ytd-shorts,
-ytd-app ytd-shorts *,
-ytd-app ytd-reel-shelf-renderer,
-ytd-app ytd-reel-shelf-renderer *,
-ytd-app ytd-shorts-lockup-view-model,
-ytd-app ytd-shorts-lockup-view-model *,
-ytd-app ytd-shorts-lockup-view-model-v2,
-ytd-app ytd-shorts-lockup-view-model-v2 *,
-ytd-app ytd-reel-item-renderer,
-ytd-app ytd-reel-item-renderer *,
-ytd-app #shorts-container,
-ytd-app #shorts-container * {
-    background-color: unset !important;
-    background: unset !important;
-    color: unset !important;
-    border-color: unset !important;
-    filter: none !important;
-    opacity: 1 !important;
-}
-
 /* ── Video & images — NEVER touch ── */
 video, img, canvas, picture, svg, svg image,
 iframe, embed, object {
@@ -1514,72 +1487,74 @@ iframe, embed, object {
     (document.head || document.documentElement).appendChild(style);
 
     // ── Shorts fixer ──
-    // The CSS block above handles most cases, but YouTube is a SPA and
-    // re-renders Shorts asynchronously. This JS ensures the fix style is
-    // always present and watches for URL changes to /shorts.
+    // CSS !important wars are unwinnable for Shorts because our body/html rules
+    // set color/background via !important and 'unset !important' just inherits
+    // from body (which is still dark). The only reliable fix is pure JS:
+    // directly set inline styles on Shorts elements — inline styles always
+    // beat stylesheets regardless of !important.
     function fixShorts() {
-        // Only run on YouTube
         if (!location.hostname.includes('youtube.com')) return;
 
-        const SHORTS_ID = '__sf_shorts_fix__';
-        // Always re-create so it stays last in the cascade
-        const existing = document.getElementById(SHORTS_ID);
-        if (existing) existing.remove();
+        const SHORTS_SELECTORS = [
+            'ytd-reel-video-renderer',
+            'ytd-shorts',
+            'ytd-reel-shelf-renderer',
+            'ytd-shorts-lockup-view-model',
+            'ytd-shorts-lockup-view-model-v2',
+            'ytd-reel-item-renderer',
+            '#shorts-container',
+            '#shorts-inner-container',
+        ];
 
-        const fix = document.createElement('style');
-        fix.id = SHORTS_ID;
-        fix.textContent = `
-            ytd-app ytd-reel-video-renderer,
-            ytd-app ytd-reel-video-renderer *,
-            ytd-app ytd-shorts,
-            ytd-app ytd-shorts *,
-            ytd-app ytd-reel-shelf-renderer,
-            ytd-app ytd-reel-shelf-renderer *,
-            ytd-app ytd-shorts-lockup-view-model,
-            ytd-app ytd-shorts-lockup-view-model *,
-            ytd-app ytd-shorts-lockup-view-model-v2,
-            ytd-app ytd-shorts-lockup-view-model-v2 *,
-            ytd-app ytd-reel-item-renderer,
-            ytd-app ytd-reel-item-renderer *,
-            ytd-app #shorts-container,
-            ytd-app #shorts-container * {
-                background-color: unset !important;
-                background: unset !important;
-                color: unset !important;
-                border-color: unset !important;
-                filter: none !important;
-                opacity: 1 !important;
+        const RESET_PROPS = [
+            'backgroundColor', 'background', 'color',
+            'borderColor', 'borderTopColor', 'borderBottomColor',
+            'borderLeftColor', 'borderRightColor'
+        ];
+
+        function resetEl(el) {
+            for (const prop of RESET_PROPS) {
+                el.style[prop] = '';
             }
-        `;
-        (document.head || document.documentElement).appendChild(fix);
+            // Reset all children too
+            el.querySelectorAll('*').forEach(child => {
+                for (const prop of RESET_PROPS) {
+                    child.style[prop] = '';
+                }
+            });
+        }
+
+        for (const sel of SHORTS_SELECTORS) {
+            document.querySelectorAll(sel).forEach(resetEl);
+        }
     }
 
-    // Re-apply on SPA navigation (YouTube etc.)
-    let scheduled = false;
+    // Run fixShorts on DOM mutations — throttled to avoid thrashing
+    let shortsTimer = null;
     new MutationObserver(() => {
-        if (scheduled) return;
-        scheduled = true;
-        requestAnimationFrame(() => {
-            scheduled = false;
+        if (shortsTimer) return;
+        shortsTimer = setTimeout(() => {
+            shortsTimer = null;
+            // Re-append main style if SPA removed it
             if (!document.getElementById(STYLE_ID)) {
                 (document.head || document.documentElement).appendChild(style);
             }
             fixShorts();
-        });
+        }, 200);
     }).observe(document.documentElement, { childList: true, subtree: true });
 
-    // Also watch for URL changes (YouTube SPA navigates without full reload)
+    // Watch URL changes for SPA navigation to /shorts
     let lastUrl = location.href;
     setInterval(() => {
         if (location.href !== lastUrl) {
             lastUrl = location.href;
-            // Small delay to let YouTube render new content
-            setTimeout(fixShorts, 500);
-            setTimeout(fixShorts, 1500);
+            setTimeout(fixShorts, 400);
+            setTimeout(fixShorts, 1200);
+            setTimeout(fixShorts, 2500);
         }
     }, 500);
 
-    // Run once on load too
+    // Run on load
     if (document.readyState === 'complete') fixShorts();
     else window.addEventListener('load', fixShorts, { once: true });
 })();
