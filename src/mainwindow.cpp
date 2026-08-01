@@ -810,56 +810,70 @@ void MainWindow::injectDarkMode() {
     // elements. Text is left at whatever the site sets so readability is preserved.
     // Images, video, canvas are completely untouched.
     QString css = R"CSS(
+/* ═══════════════════════════════════════════════════════════════════
+   SwordFish Dark Mode — SwordWM One Dark Palette
+   BG: #282c34  BG2: #21252b  DIM: #3e4451  FG: #abb2bf
+   CYAN: #61afef  GREEN: #98c379  AMBER: #e5c07b  RED: #e06c75
+   ═══════════════════════════════════════════════════════════════════ */
+
 /* ── Force dark color-scheme ── */
 :root {
     color-scheme: dark !important;
-    --sf-bg:       #0d1117 !important;
-    --sf-surface:  #161b22 !important;
-    --sf-surface2: #1c2128 !important;
-    --sf-border:   #30363d !important;
-    --sf-text:     #00d2ff !important;
-    --sf-muted:    #4fc3d4 !important;
-    --sf-accent:   #00b4d8 !important;
+    --sf-bg:       #282c34 !important;
+    --sf-bg2:      #21252b !important;
+    --sf-surface:  #2c313c !important;
+    --sf-surface2: #3e4451 !important;
+    --sf-border:   #3e4451 !important;
+    --sf-text:     #abb2bf !important;
+    --sf-muted:    #5c6370 !important;
+    --sf-accent:   #61afef !important;
+    --sf-green:    #98c379 !important;
+    --sf-amber:    #e5c07b !important;
+    --sf-red:      #e06c75 !important;
 }
 
-/* ── Page background + default text cyan ── */
+/* ── Page background + default text ── */
 html {
-    background-color: #0d1117 !important;
-    color: #00d2ff !important;
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
 }
 body {
-    background-color: #0d1117 !important;
-    color: #00d2ff !important;
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
 }
 
-/* ── All general text elements → cyan ── */
+/* ── All general text elements ── */
 p, h1, h2, h3, h4, h5, h6,
 li, dt, dd, caption, figcaption,
 label, legend, summary,
-blockquote, cite, q {
-    color: #00d2ff !important;
+blockquote, cite, q,
+span, div {
+    color: #abb2bf !important;
 }
 
 /* ── Links ── */
-a, a:visited, a:hover { color: #7ee8fa !important; }
-a:hover { color: #ffffff !important; }
+a { color: #61afef !important; }
+a:visited { color: #c678dd !important; }
+a:hover { color: #528bff !important; }
 
-/* ── Headings slightly brighter ── */
-h1, h2, h3 { color: #a0f0ff !important; }
+/* ── Headings ── */
+h1, h2, h3 { color: #e5c07b !important; }
+h4, h5, h6 { color: #61afef !important; }
 
 /* ── Muted / secondary text ── */
 small, .muted, [class*="subtitle"], [class*="secondary"],
-[class*="description"], [class*="caption"], time, cite {
-    color: #4fc3d4 !important;
+[class*="description"], [class*="caption"], time, cite,
+[class*="timestamp"], [class*="meta"] {
+    color: #5c6370 !important;
 }
 
 /* ── Common surface elements ── */
 header, nav, footer, aside, main, section, article,
 [role="banner"], [role="navigation"], [role="main"],
 [role="complementary"], [role="contentinfo"] {
-    background-color: #161b22 !important;
-    border-color: #30363d !important;
-    color: #00d2ff !important;
+    background-color: #282c34 !important;
+    border-color: #3e4451 !important;
+    color: #abb2bf !important;
 }
 
 /* ── Cards / panels / boxes ── */
@@ -868,9 +882,9 @@ header, nav, footer, aside, main, section, article,
 [class*="drawer"], [class*="popup"], [class*="tooltip"],
 [class*="sidebar"],
 [id*="sidebar"], [id*="panel"] {
-    background-color: #161b22 !important;
-    border-color: #30363d !important;
-    color: #00d2ff !important;
+    background-color: #2c313c !important;
+    border-color: #3e4451 !important;
+    color: #abb2bf !important;
 }
 
 /* ── Inputs / textarea / select ── */
@@ -878,40 +892,41 @@ input:not([type="submit"]):not([type="button"]):not([type="reset"])
     :not([type="checkbox"]):not([type="radio"])
     :not([type="range"]):not([type="color"]),
 textarea, select {
-    background-color: #161b22 !important;
-    color: #00d2ff !important;
-    border: 1px solid #30363d !important;
+    background-color: #21252b !important;
+    color: #abb2bf !important;
+    border: 1px solid #3e4451 !important;
 }
-input::placeholder, textarea::placeholder { color: #4fc3d4 !important; }
+input::placeholder, textarea::placeholder { color: #5c6370 !important; }
 
 /* ── Buttons ── */
 button, [type="button"], [type="submit"], [type="reset"],
 [role="button"] {
-    background-color: #1c2128 !important;
-    color: #00d2ff !important;
-    border-color: #30363d !important;
+    background-color: #3e4451 !important;
+    color: #abb2bf !important;
+    border-color: #4b5263 !important;
 }
 button:hover, [role="button"]:hover {
-    background-color: #0a3040 !important;
-    color: #ffffff !important;
+    background-color: #4b5263 !important;
+    color: #abb2bf !important;
 }
 
 /* ── Tables ── */
-table { border-color: #30363d !important; }
-tr:nth-child(even) { background-color: #161b22 !important; }
-th { color: #a0f0ff !important; background-color: #1c2128 !important; }
-td { color: #00d2ff !important; border-color: #30363d !important; }
+table { border-color: #3e4451 !important; }
+tr:nth-child(even) { background-color: #2c313c !important; }
+th { color: #e5c07b !important; background-color: #21252b !important; }
+td { color: #abb2bf !important; border-color: #3e4451 !important; }
 
 /* ── Code ── */
 code, pre, kbd, samp {
-    background-color: #161b22 !important;
-    color: #79c0ff !important;
-    border-color: #30363d !important;
+    background-color: #21252b !important;
+    color: #98c379 !important;
+    border-color: #3e4451 !important;
 }
 
-/* ── VIDEO PLAYER EXCLUSION — must come before all background rules ── */
-/* YouTube player container and everything inside it must NEVER get
-   a dark background or color override — it blocks the video render */
+/* ═══════════════════════════════════════════════════════════════════
+   VIDEO PLAYER EXCLUSION — must come before all background rules
+   YouTube player and everything inside must NEVER get dark bg/color
+   ═══════════════════════════════════════════════════════════════════ */
 #movie_player,
 .html5-video-player,
 .html5-video-container,
@@ -942,40 +957,338 @@ video * {
     opacity: 1 !important;
 }
 
-/* ── YouTube specific ── */
-ytd-app, #page-manager, ytd-browse, ytd-search,
-#masthead, #masthead-container, ytd-masthead,
-ytd-guide-renderer, #guide-inner-content,
-ytd-mini-guide-renderer, ytd-watch-flexy,
-#secondary, #primary,
-ytd-rich-grid-renderer, ytd-section-list-renderer,
+/* ═══════════════════════════════════════════════════════════════════
+   YOUTUBE — comprehensive selectors for all UI elements
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── YouTube app shell + main containers ── */
+ytd-app, ytd-fullpage-app,
+#page-manager, ytd-browse, ytd-search, ytd-watch-flexy,
 ytd-two-column-browse-results-renderer {
-    background-color: #0d1117 !important;
-    color: #00d2ff !important;
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
 }
-yt-formatted-string, .ytd-video-primary-info-renderer,
-.ytd-channel-name, #video-title, #title,
-ytd-channel-name a, .yt-simple-endpoint {
-    color: #00d2ff !important;
+
+/* ── Masthead / top bar ── */
+#masthead, #masthead-container, ytd-masthead,
+#masthead-container-internal,
+ytd-masthead #masthead-container {
+    background-color: #21252b !important;
+    color: #abb2bf !important;
+    border-bottom: 1px solid #3e4451 !important;
 }
-#description, ytd-expander {
-    background-color: #161b22 !important;
-    color: #4fc3d4 !important;
+
+/* ── Sidebar / guide ── */
+ytd-guide-renderer, #guide-inner-content,
+ytd-mini-guide-renderer,
+ytd-guide-entry-renderer,
+ytd-guide-section-renderer {
+    background-color: #21252b !important;
+    color: #abb2bf !important;
 }
-ytd-thumbnail, ytd-playlist-thumbnail { background: transparent !important; }
+ytd-guide-entry-renderer a,
+ytd-guide-entry-renderer .guide-entry-badge,
+ytd-guide-entry-renderer yt-formatted-string {
+    color: #abb2bf !important;
+}
+ytd-guide-entry-renderer:hover,
+ytd-guide-entry-renderer[active] {
+    background-color: #3e4451 !important;
+}
+ytd-guide-entry-renderer[active] yt-formatted-string,
+ytd-guide-entry-renderer[active] a {
+    color: #61afef !important;
+}
+
+/* ── Video title + channel info ── */
+#video-title, #title,
+ytd-video-primary-info-renderer #title h1,
+ytd-video-primary-info-renderer yt-formatted-string.ytd-video-primary-info-renderer {
+    color: #abb2bf !important;
+}
+ytd-channel-name, ytd-channel-name a,
+ytd-channel-name yt-formatted-string,
+.ytd-channel-name {
+    color: #61afef !important;
+}
+ytd-channel-name a:hover {
+    color: #528bff !important;
+}
+
+/* ── Video description ── */
+#description, ytd-expander,
+ytd-text-inline-expander,
+ytd-video-secondary-info-renderer #description {
+    background-color: #2c313c !important;
+    color: #abb2bf !important;
+    border-color: #3e4451 !important;
+}
+#description yt-formatted-string,
+#description span,
+#description a {
+    color: #abb2bf !important;
+}
+
+/* ── Comment section ── */
+ytd-comments, ytd-comments-header-renderer,
+#count, #count .count-text,
+ytd-comments-header-renderer #count {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+ytd-comment-thread-renderer,
+ytd-comment-renderer,
+ytd-comment-view-model {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+    border-color: #3e4451 !important;
+}
+/* Comment author name */
+#author-text, #author-text a,
+ytd-comment-renderer #author-text,
+ytd-comment-view-model #author-text,
+.ytd-comment-renderer #author-text,
+#header-author #author-text {
+    color: #61afef !important;
+    font-weight: bold !important;
+}
+/* Comment body text */
+#content-text, ytd-comment-renderer #content-text,
+ytd-comment-view-model #content-text,
+.ytd-comment-renderer #content-text,
+ytd-expander.ytd-comment-renderer {
+    color: #abb2bf !important;
+}
+/* Comment action buttons (like, reply, etc.) */
+#action-buttons, ytd-comment-action-buttons-renderer,
+.ytd-comment-action-buttons-renderer,
+#reply-button-end, #like-button,
+.ytd-comment-action-buttons-renderer button {
+    color: #5c6370 !important;
+}
+.ytd-comment-action-buttons-renderer button:hover {
+    color: #abb2bf !important;
+}
+/* Comment timestamp */
+.ytd-comment-renderer .published-time-text,
+.ytd-comment-renderer .published-time-text a,
+#published-time-text a {
+    color: #5c6370 !important;
+}
+/* Comment replies */
+ytd-comment-replies-renderer,
+ytd-continuation-item-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+/* Pinned / hearted comments */
+ytd-comment-renderer[is-pinned],
+#pinned-comment-badge {
+    background-color: #2c313c !important;
+}
+#pinned-comment-badge span,
+.ytd-pinned-comment-badge-renderer {
+    color: #e5c07b !important;
+}
+/* Author comment badge */
+ytd-author-comment-badge-renderer,
+#author-comment-badge {
+    background-color: #2c313c !important;
+}
+ytd-author-comment-badge-renderer #author-text,
+#author-comment-badge #author-text {
+    color: #61afef !important;
+}
+
+/* ── Related videos / sidebar ── */
+#secondary, ytd-secondary-results-container-renderer,
+ytd-compact-video-renderer,
+ytd-compact-radio-renderer,
+ytd-compact-playlist-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+ytd-compact-video-renderer #video-title,
+ytd-compact-video-renderer a#video-title-link,
+ytd-compact-video-renderer .details {
+    color: #abb2bf !important;
+}
+ytd-compact-video-renderer .ytd-channel-name a,
+ytd-compact-video-renderer #channel-name a {
+    color: #5c6370 !important;
+}
+ytd-compact-video-renderer:hover {
+    background-color: #2c313c !important;
+}
+
+/* ── Video grid / thumbnails ── */
+ytd-rich-grid-renderer,
+ytd-rich-item-renderer,
+ytd-grid-renderer,
+ytd-item-section-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+ytd-thumbnail, ytd-playlist-thumbnail,
+ytd-rich-grid-media {
+    background: transparent !important;
+}
+#video-title-0, #video-title-1, #video-title-2,
+ytd-rich-grid-media #video-title,
+ytd-grid-video-renderer #video-title,
+a#video-title {
+    color: #abb2bf !important;
+}
+ytd-rich-grid-media .ytd-channel-name a,
+ytd-grid-video-renderer #channel-name a,
+#metadata-line .inline-metadata-item {
+    color: #5c6370 !important;
+}
+
+/* ── Tab bar (Home, Videos, Playlists, etc.) ── */
+ytd-tab-renderer, ytd-tabs-renderer,
+tp-yt-paper-tab, #tabsContent,
+.ytp-tab {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+tp-yt-paper-tab {
+    color: #5c6370 !important;
+}
+tp-yt-paper-tab[aria-selected="true"] {
+    color: #61afef !important;
+    border-bottom: 2px solid #61afef !important;
+}
+
+/* ── Subscribe / action buttons ── */
+#subscribe-button, ytd-subscribe-button-renderer,
+#notification-button, #like-button, #dislike-button,
+ytd-menu-renderer #button,
+ytd-toggle-button-renderer,
+ytd-button-renderer {
+    color: #abb2bf !important;
+}
+ytd-subscribe-button-renderer button,
+ytd-menu-renderer yt-button-shape button,
+ytd-button-renderer button,
+tp-yt-paper-button {
+    background-color: #3e4451 !important;
+    color: #abb2bf !important;
+    border-color: #4b5263 !important;
+}
+ytd-subscribe-button-renderer button[subscribed],
+ytd-subscribe-button-renderer button[aria-pressed="true"] {
+    background-color: #21252b !important;
+    color: #5c6370 !important;
+}
+
+/* ── Search results ── */
+ytd-search, ytd-search-renderer,
+#contents.ytd-search-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+ytd-video-renderer,
+ytd-channel-renderer,
+ytd-playlist-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+ytd-video-renderer #video-title,
+ytd-video-renderer a#video-title {
+    color: #abb2bf !important;
+}
+
+/* ── Notifications / dropdowns ── */
+ytd-popup-container,
+tp-yt-paper-listbox,
+tp-yt-paper-item,
+ytd-notification-topbar-button-renderer {
+    background-color: #21252b !important;
+    color: #abb2bf !important;
+}
+tp-yt-paper-item:hover,
+tp-yt-paper-item tp-yt-paper-item-body-2 {
+    background-color: #3e4451 !important;
+    color: #abb2bf !important;
+}
+
+/* ── Settings / account menus ── */
+ytd-settings-page-renderer,
+ytd-account-page-renderer,
+tp-yt-paper-dialog,
+tp-yt-paper-dropdown-menu {
+    background-color: #21252b !important;
+    color: #abb2bf !important;
+}
+
+/* ── Live chat ── */
+ytd-live-chat-frame,
+ytd-live-chat-renderer,
+yt-live-chat-text-input-renderer {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+
+/* ── Playlist panel ── */
+ytd-playlist-panel-renderer,
+#playlist-action-menu,
+ytd-playlist-panel-video-renderer {
+    background-color: #21252b !important;
+    color: #abb2bf !important;
+}
+ytd-playlist-panel-video-renderer #video-title {
+    color: #abb2bf !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   GENERIC WEBSITES — fallback for non-YouTube pages
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ── Reddit ── */
+.reddit-login, .header, #header,
+.subgrid-container, [data-testid="post-container"],
+.shreddit-comment, [slot="comment"],
+.FaceplateTieredInput, [data-click-id="body"] {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+
+/* ── GitHub ── */
+.js-header, .repository-content, .file-navigation,
+.blob-code, .blob-num, .highlight,
+.markdown-body, .comment-body {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+
+/* ── Twitter/X ── */
+[data-testid="primaryColumn"], [data-testid="sidebarColumn"],
+[data-testid="tweetText"], [data-testid="User-Name"],
+article[role="article"] {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
+
+/* ── Stack Overflow ── */
+.s-sidebarwidget, #answers, .question, .answer,
+.post-text, .s-prose, .post-layout {
+    background-color: #282c34 !important;
+    color: #abb2bf !important;
+}
 
 /* ── Video & images — NEVER touch ── */
-video, img, canvas, picture, svg image,
+video, img, canvas, picture, svg, svg image,
 iframe, embed, object {
     filter: none !important;
     opacity: 1 !important;
 }
 
-/* ── Scrollbars ── */
+/* ── Scrollbars — One Dark style ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: #0d1117; }
-::-webkit-scrollbar-thumb { background: #1e4a5a; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #00b4d8; }
+::-webkit-scrollbar-track { background: #282c34; }
+::-webkit-scrollbar-thumb { background: #3e4451; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #4b5263; }
 )CSS";
 
     QString script = QString(R"JS(
