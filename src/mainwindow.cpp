@@ -1008,11 +1008,11 @@ body {
 }
 
 /* ── All general text elements ── */
+/* NOTE: span and div intentionally omitted — too broad, breaks Shorts/players */
 p, h1, h2, h3, h4, h5, h6,
 li, dt, dd, caption, figcaption,
 label, legend, summary,
-blockquote, cite, q,
-span, div {
+blockquote, cite, q {
     color: #abb2bf !important;
 }
 
@@ -1443,9 +1443,31 @@ article[role="article"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   YOUTUBE SHORTS — NO CSS overrides at all for Shorts
-   Handled entirely by JS below to avoid specificity issues
+   YOUTUBE SHORTS — high-specificity reset using element chain
+   These come LAST in the stylesheet so they win the cascade.
+   Using element+element specificity to beat the broad rules above.
    ═══════════════════════════════════════════════════════════════════ */
+ytd-app ytd-reel-video-renderer,
+ytd-app ytd-reel-video-renderer *,
+ytd-app ytd-shorts,
+ytd-app ytd-shorts *,
+ytd-app ytd-reel-shelf-renderer,
+ytd-app ytd-reel-shelf-renderer *,
+ytd-app ytd-shorts-lockup-view-model,
+ytd-app ytd-shorts-lockup-view-model *,
+ytd-app ytd-shorts-lockup-view-model-v2,
+ytd-app ytd-shorts-lockup-view-model-v2 *,
+ytd-app ytd-reel-item-renderer,
+ytd-app ytd-reel-item-renderer *,
+ytd-app #shorts-container,
+ytd-app #shorts-container * {
+    background-color: unset !important;
+    background: unset !important;
+    color: unset !important;
+    border-color: unset !important;
+    filter: none !important;
+    opacity: 1 !important;
+}
 
 /* ── Video & images — NEVER touch ── */
 video, img, canvas, picture, svg, svg image,
@@ -1479,33 +1501,35 @@ iframe, embed, object {
     (document.head || document.documentElement).appendChild(style);
 
     // ── Shorts fixer ──
-    // CSS !important can't be overridden by descendants without JS.
-    // We inject a <style> that resets all Shorts elements to initial values,
-    // added AFTER the main dark style so it wins the cascade.
+    // The CSS block above handles most cases, but YouTube is a SPA and
+    // re-renders Shorts asynchronously. This JS ensures the fix style is
+    // always present and watches for URL changes to /shorts.
     function fixShorts() {
-        const SHORTS_ID = '__sf_shorts_fix__';
-        if (document.getElementById(SHORTS_ID)) return;
-
         // Only run on YouTube
         if (!location.hostname.includes('youtube.com')) return;
+
+        const SHORTS_ID = '__sf_shorts_fix__';
+        // Always re-create so it stays last in the cascade
+        const existing = document.getElementById(SHORTS_ID);
+        if (existing) existing.remove();
 
         const fix = document.createElement('style');
         fix.id = SHORTS_ID;
         fix.textContent = `
-            ytd-reel-video-renderer,
-            ytd-reel-video-renderer *,
-            ytd-shorts,
-            ytd-shorts *,
-            ytd-reel-shelf-renderer,
-            ytd-reel-shelf-renderer *,
-            ytd-shorts-lockup-view-model,
-            ytd-shorts-lockup-view-model *,
-            ytd-shorts-lockup-view-model-v2,
-            ytd-shorts-lockup-view-model-v2 *,
-            #shorts-container,
-            #shorts-container *,
-            ytd-reel-item-renderer,
-            ytd-reel-item-renderer * {
+            ytd-app ytd-reel-video-renderer,
+            ytd-app ytd-reel-video-renderer *,
+            ytd-app ytd-shorts,
+            ytd-app ytd-shorts *,
+            ytd-app ytd-reel-shelf-renderer,
+            ytd-app ytd-reel-shelf-renderer *,
+            ytd-app ytd-shorts-lockup-view-model,
+            ytd-app ytd-shorts-lockup-view-model *,
+            ytd-app ytd-shorts-lockup-view-model-v2,
+            ytd-app ytd-shorts-lockup-view-model-v2 *,
+            ytd-app ytd-reel-item-renderer,
+            ytd-app ytd-reel-item-renderer *,
+            ytd-app #shorts-container,
+            ytd-app #shorts-container * {
                 background-color: unset !important;
                 background: unset !important;
                 color: unset !important;
@@ -1529,7 +1553,18 @@ iframe, embed, object {
             }
             fixShorts();
         });
-    }).observe(document.documentElement, { childList: true, subtree: false });
+    }).observe(document.documentElement, { childList: true, subtree: true });
+
+    // Also watch for URL changes (YouTube SPA navigates without full reload)
+    let lastUrl = location.href;
+    setInterval(() => {
+        if (location.href !== lastUrl) {
+            lastUrl = location.href;
+            // Small delay to let YouTube render new content
+            setTimeout(fixShorts, 500);
+            setTimeout(fixShorts, 1500);
+        }
+    }, 500);
 
     // Run once on load too
     if (document.readyState === 'complete') fixShorts();
