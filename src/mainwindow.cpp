@@ -346,9 +346,16 @@ void MainWindow::buildUi() {
         if (br) m_urlBar->setText(br->url().toString());
     });
 
-    auto *tabBtn = new QPushButton("TAB");
-    tabBtn->setFixedSize(50, 28);
-    tabBtn->setStyleSheet("background-color: transparent; color: #023e8a; font-size: 13px; font-weight: bold; border: none;");
+    auto *tabBtn = new QPushButton("+");
+    tabBtn->setFixedSize(32, 28);
+    tabBtn->setCursor(Qt::PointingHandCursor);
+    tabBtn->setStyleSheet(m_darkMode
+        ? "QPushButton { background-color: #3e4451; color: #abb2bf; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; }"
+          "QPushButton:hover { background-color: #4b5263; color: #abb2bf; }"
+          "QPushButton:pressed { background-color: #2c313c; }"
+        : "QPushButton { background-color: #caf0f8; color: #023e8a; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; }"
+          "QPushButton:hover { background-color: #ade8f4; color: #023e8a; }"
+          "QPushButton:pressed { background-color: #90e0ef; }");
     connect(tabBtn, &QPushButton::clicked, this, [this]() { newTab(); });
     m_tabs->setCornerWidget(tabBtn);
 
@@ -479,8 +486,12 @@ void MainWindow::applyTheme() {
     auto *tabBtn = qobject_cast<QPushButton*>(m_tabs->cornerWidget());
     if (tabBtn) {
         tabBtn->setStyleSheet(m_darkMode
-            ? "background-color: transparent; color: #00d2ff; font-size: 13px; font-weight: bold; border: none;"
-            : "background-color: transparent; color: #023e8a; font-size: 13px; font-weight: bold; border: none;");
+            ? "QPushButton { background-color: #3e4451; color: #abb2bf; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; }"
+              "QPushButton:hover { background-color: #4b5263; color: #abb2bf; }"
+              "QPushButton:pressed { background-color: #2c313c; }"
+            : "QPushButton { background-color: #caf0f8; color: #023e8a; font-size: 16px; font-weight: bold; border: none; border-radius: 4px; }"
+              "QPushButton:hover { background-color: #ade8f4; color: #023e8a; }"
+              "QPushButton:pressed { background-color: #90e0ef; }");
     }
 
     // Update theme toggle button
@@ -488,10 +499,10 @@ void MainWindow::applyTheme() {
         m_themeBtn->setText(m_darkMode ? "☀ Light" : "🌙 Dark");
         m_themeBtn->setToolTip(m_darkMode ? "Switch to Light mode" : "Switch to Dark mode");
         m_themeBtn->setStyleSheet(m_darkMode
-            ? "QPushButton { background-color: rgba(0,60,100,0.8); color: #00d2ff;"
-              "  border: 1px solid rgba(0,210,255,0.4); border-radius: 4px;"
+            ? "QPushButton { background-color: #3e4451; color: #abb2bf;"
+              "  border: none; border-radius: 4px;"
               "  padding: 0 12px; font-size: 13px; font-weight: bold; }"
-              "QPushButton:hover { background-color: rgba(0,100,160,0.9); color: #fff; }"
+              "QPushButton:hover { background-color: #4b5263; color: #abb2bf; }"
             : "QPushButton { background-color: #0077b6; color: white; border: none;"
               "  border-radius: 4px; padding: 0 12px; font-size: 13px; font-weight: bold; }"
               "QPushButton:hover { background-color: #0096c7; }");
