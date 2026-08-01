@@ -13,6 +13,8 @@
 #include "tools/translate.h"
 
 #include <QApplication>
+#include <QClipboard>
+#include <QKeyEvent>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFormLayout>
@@ -272,8 +274,9 @@ QString MainWindow::downloadDir() {
 }
 
 void MainWindow::buildUi() {
-    auto *navbar = addToolBar("Navigation");
-    navbar->setMovable(false);
+    m_navbar = addToolBar("Navigation");
+    m_navbar->setMovable(false);
+    auto *navbar = m_navbar;
 
     struct NavBtn { QString label; void(MainWindow::*slot)(); };
     std::vector<NavBtn> navBtns = {
@@ -332,11 +335,28 @@ void MainWindow::buildUi() {
     connect(m_tabs, &QTabWidget::tabCloseRequested, this, [this](int idx) {
         if (m_tabs->count() > 1) {
             auto *w = qobject_cast<TabWidget*>(m_tabs->widget(idx));
-            if (w && w->browser()) {
-                w->browser()->disconnect();
+            if (w) {
+                // Save URL for reopen
+                if (w->browser() && !w->browser()->url().isEmpty()
+                    && w->browser()->url().toString() != "about:blank") {
+                    QJsonArray closed = m_data["closed_tabs"].toArray();
+                    closed.append(w->browser()->url().toString());
+                    // Keep last 20 closed tabs
+                    while (closed.size() > 20) closed.removeFirst();
+                    m_data["closed_tabs"] = closed;
+                }
+                // Must set page to nullptr before destroying the widget
+                if (w->browser()) {
+                    w->browser()->stop();
+                    w->browser()->setPage(nullptr);
+                }
+                if (w->pdfViewer()) {
+                    w->pdfViewer()->stop();
+                    w->pdfViewer()->setPage(nullptr);
+                }
             }
             m_tabs->removeTab(idx);
-            w->deleteLater();
+            if (w) w->deleteLater();
         } else {
             close();
         }
@@ -359,7 +379,53 @@ void MainWindow::buildUi() {
     connect(tabBtn, &QPushButton::clicked, this, [this]() { newTab(); });
     m_tabs->setCornerWidget(tabBtn);
 
-    setCentralWidget(m_tabs);
+    // ── Find bar (hidden until Ctrl+F) ──
+    m_findBar = new QWidget(this);
+    auto *findLayout = new QHBoxLayout(m_findBar);
+    findLayout->setContentsMargins(6, 3, 6, 3);
+    findLayout->setSpacing(4);
+    m_findEdit = new QLineEdit(m_findBar);
+    m_findEdit->setPlaceholderText("Find in page…");
+    m_findEdit->setMaximumWidth(280);
+    m_findStatus = new QLabel("", m_findBar);
+    m_findStatus->setMinimumWidth(60);
+    auto *findPrevBtn = new QPushButton("▲", m_findBar);
+    auto *findNextBtn = new QPushButton("▼", m_findBar);
+    auto *findCloseBtn = new QPushButton("✕", m_findBar);
+    for (auto *b : {findPrevBtn, findNextBtn, findCloseBtn}) {
+        b->setFixedSize(26, 26);
+    }
+    findLayout->addWidget(new QLabel("Find:"));
+    findLayout->addWidget(m_findEdit);
+    findLayout->addWidget(m_findStatus);
+    findLayout->addWidget(findPrevBtn);
+    findLayout->addWidget(findNextBtn);
+    findLayout->addStretch();
+    findLayout->addWidget(findCloseBtn);
+    m_findBar->setVisible(false);
+
+    // Wire find bar
+    connect(m_findEdit, &QLineEdit::textChanged, this, &MainWindow::findNext);
+    connect(m_findEdit, &QLineEdit::returnPressed, this, &MainWindow::findNext);
+    connect(findNextBtn,  &QPushButton::clicked, this, &MainWindow::findNext);
+    connect(findPrevBtn,  &QPushButton::clicked, this, &MainWindow::findPrev);
+    connect(findCloseBtn, &QPushButton::clicked, this, &MainWindow::closeFindBar);
+
+    // ── Central widget: tabs + find bar stacked ──
+    auto *central = new QWidget(this);
+    auto *centralLayout = new QVBoxLayout(central);
+    centralLayout->setContentsMargins(0, 0, 0, 0);
+    centralLayout->setSpacing(0);
+    centralLayout->addWidget(m_tabs);
+    centralLayout->addWidget(m_findBar);
+    setCentralWidget(central);
+
+    // ── Tab bar context menu ──
+    m_tabs->tabBar()->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tabs->tabBar(), &QTabBar::customContextMenuRequested,
+            this, &MainWindow::showTabContextMenu);
+
+    setupShortcuts();
 
     if (!m_isPrivate) {
         restoreTabs();
@@ -371,6 +437,10 @@ void MainWindow::buildUi() {
 QWebEngineView *MainWindow::currentBrowser() {
     auto *w = qobject_cast<TabWidget*>(m_tabs->currentWidget());
     return w ? w->browser() : nullptr;
+}
+
+TabWidget *MainWindow::currentTabWidget() {
+    return qobject_cast<TabWidget*>(m_tabs->currentWidget());
 }
 
 TabWidget *MainWindow::newTab(const QString &url) {
@@ -764,51 +834,88 @@ void MainWindow::showDownloadMenu() {
 // ── Adblock Injection ─────────────────────────────────────────────────────
 
 void MainWindow::injectAdblock() {
-    QString script = R"(
+    QString script = R"JS(
 (function() {
     'use strict';
-    const AD_SELECTORS = [
-        '.adsbygoogle', '.adsense', '.advertisement',
-        '.ad-container', '.ad-wrap', '.ad-placeholder', '.ad-unit',
-        '.ad-banner', '.ad-slot', '.ad-box',
-        '#ad-sidebar', '#ad-banner', '#ad-container', '#ad-wrap',
-        'iframe[src*="doubleclick"]', 'iframe[src*="googlead"]',
-        'ins.adsbygoogle',
-        '.video-ads', '.ytp-ad-module', '.ytd-ad-slot-renderer',
-        '#masthead-ad', '#player-ads',
-        'ytd-rich-shelf-renderer[is-shorts]',
-        'ytd-reel-shelf-renderer',
-        'a[title="Shorts"]', '[title="Shorts"]',
-    ];
-    const AD_KEYWORDS = ['doubleclick', 'googlead', 'adservice', 'adserver', 'adnxs', 'adzerk'];
+    if (!document || !document.documentElement) return;
 
-    function cleanup() {
+    const AD_SELECTORS = [
+        // Generic ad classes
+        '.adsbygoogle', '.adsense', '.advertisement', '.ads-container',
+        '.ad-container', '.ad-wrap', '.ad-placeholder', '.ad-unit',
+        '.ad-banner', '.ad-slot', '.ad-box', '.ad-label', '.ad-wrapper',
+        '[class*="sponsor"]', '[class*="promoted"]',
+        // Generic ad IDs
+        '#ad-sidebar', '#ad-banner', '#ad-container', '#ad-wrap', '#ads',
+        // Ad iframes
+        'iframe[src*="doubleclick"]', 'iframe[src*="googlead"]',
+        'iframe[src*="adservice"]', 'iframe[src*="googlesyndication"]',
+        'ins.adsbygoogle',
+        // YouTube specific
+        '.video-ads', '.ytp-ad-module', '.ytd-ad-slot-renderer',
+        'ytd-ad-slot-renderer', 'ytd-in-feed-ad-layout-renderer',
+        'ytd-banner-promo-renderer', 'ytd-statement-banner-renderer',
+        '#masthead-ad', '#player-ads', '.ytd-display-ad-renderer',
+        'ytd-promoted-sparkles-web-renderer', 'ytd-promoted-video-renderer',
+        'ytd-compact-promoted-video-renderer',
+        // Shorts (optional)
+        // 'ytd-rich-shelf-renderer[is-shorts]',
+        // 'a[title="Shorts"]',
+    ];
+
+    const AD_URL_KEYWORDS = [
+        'doubleclick.net', 'googleadservices', 'googlesyndication',
+        'adservice.google', 'adnxs.com', 'adzerk', 'moatads',
+        'scorecardresearch', 'outbrain', 'taboola', 'pagead',
+        'viewthroughconversion', 'generate_204',
+    ];
+
+    function removeAds() {
         AD_SELECTORS.forEach(sel => {
-            document.querySelectorAll(sel).forEach(el => el.remove());
+            try {
+                document.querySelectorAll(sel).forEach(el => {
+                    el.remove();
+                });
+            } catch (_) {}
         });
-        document.querySelectorAll('img').forEach(el => {
-            if (el.src && !el.src.startsWith('data:') && AD_KEYWORDS.some(k => el.src.includes(k)))
+        // Remove ad images/scripts by URL
+        document.querySelectorAll('img[src], script[src]').forEach(el => {
+            const src = el.src || '';
+            if (src && !src.startsWith('data:') &&
+                AD_URL_KEYWORDS.some(k => src.includes(k))) {
                 el.remove();
+            }
         });
-        ['adblock','adblocker','ad-block','ad-blocker'].forEach(cls => {
-            document.querySelectorAll('.' + cls).forEach(el => el.remove());
-        });
+        // Skip-ad button: auto-click
+        const skipBtn = document.querySelector(
+            '.ytp-skip-ad-button, .ytp-ad-skip-button, [class*="skip-ad"]');
+        if (skipBtn) skipBtn.click();
+        // Mute/fast-forward through unskippable ads
+        const adVideo = document.querySelector('.ad-showing video');
+        if (adVideo && !adVideo.muted) {
+            adVideo.muted = true;
+            adVideo.playbackRate = 16;
+        }
     }
-    cleanup();
-    let timer = null;
+
+    removeAds();
+
+    // Re-run on DOM changes (YouTube is a SPA)
+    let pending = false;
     new MutationObserver(() => {
-        if (timer) return;
-        timer = setTimeout(() => { timer = null; cleanup(); }, 300);
+        if (pending) return;
+        pending = true;
+        setTimeout(() => { pending = false; removeAds(); }, 250);
     }).observe(document.documentElement, { childList: true, subtree: true });
 })();
-)";
+)JS";
 
     auto *webScript = new QWebEngineScript();
     webScript->setName("adblock");
     webScript->setSourceCode(script);
     webScript->setInjectionPoint(QWebEngineScript::DocumentReady);
     webScript->setWorldId(QWebEngineScript::MainWorld);
-    webScript->setRunsOnSubFrames(true);
+    webScript->setRunsOnSubFrames(false);  // main frame only — subframes are sandboxed
     m_profile->scripts()->insert(*webScript);
 }
 
@@ -2422,4 +2529,375 @@ void MainWindow::openNoteTaker() {
     });
 
     dlg.exec();
+}
+
+// ── Keyboard Shortcuts ────────────────────────────────────────────────────
+
+void MainWindow::setupShortcuts() {
+    // Shortcuts that map directly to void() slots
+    struct SC { QKeySequence key; void(MainWindow::*slot)(); };
+    const SC shortcuts[] = {
+        { QKeySequence("F11"),              &MainWindow::toggleFullscreen    },
+        { QKeySequence("F5"),               &MainWindow::reload              },
+        { QKeySequence("Ctrl+W"),           &MainWindow::closeCurrentTab     },
+        { QKeySequence("Ctrl+L"),           &MainWindow::focusUrlBar         },
+        { QKeySequence("Ctrl+F"),           &MainWindow::openFindBar         },
+        { QKeySequence("Ctrl+R"),           &MainWindow::reload              },
+        { QKeySequence("Ctrl+H"),           &MainWindow::showBookmarksMenu   },
+        { QKeySequence("Ctrl+Shift+N"),     &MainWindow::openPrivateWindow   },
+        { QKeySequence("Ctrl+Shift+T"),     &MainWindow::reopenLastTab       },
+        { QKeySequence("Ctrl+D"),           &MainWindow::bookmarkCurrentPage },
+        { QKeySequence("Ctrl+Plus"),        &MainWindow::zoomIn              },
+        { QKeySequence("Ctrl+Equal"),       &MainWindow::zoomIn              },
+        { QKeySequence("Ctrl+Minus"),       &MainWindow::zoomOut             },
+        { QKeySequence("Ctrl+0"),           &MainWindow::zoomReset           },
+        { QKeySequence("Ctrl+S"),           &MainWindow::savePage            },
+        { QKeySequence("Ctrl+U"),           &MainWindow::viewSource          },
+        { QKeySequence("Ctrl+P"),           &MainWindow::printPage           },
+        { QKeySequence("Alt+Left"),         &MainWindow::back                },
+        { QKeySequence("Alt+Right"),        &MainWindow::forward             },
+        { QKeySequence("Ctrl+Tab"),         &MainWindow::nextTab             },
+        { QKeySequence("Ctrl+Shift+Tab"),   &MainWindow::prevTab             },
+    };
+    for (auto &sc : shortcuts) {
+        auto *a = new QAction(this);
+        a->setShortcut(sc.key);
+        a->setShortcutContext(Qt::WindowShortcut);
+        connect(a, &QAction::triggered, this, sc.slot);
+        addAction(a);
+    }
+    // Ctrl+T — newTab has a default param so use lambda
+    auto *newTabAction = new QAction(this);
+    newTabAction->setShortcut(QKeySequence("Ctrl+T"));
+    newTabAction->setShortcutContext(Qt::WindowShortcut);
+    connect(newTabAction, &QAction::triggered, this, [this]() { newTab(); });
+    addAction(newTabAction);
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+    if (event->key() == Qt::Key_Escape) {
+        if (m_findBar && m_findBar->isVisible()) {
+            closeFindBar();
+            return;
+        }
+        if (m_fullscreen) {
+            toggleFullscreen();
+            return;
+        }
+    }
+    QMainWindow::keyPressEvent(event);
+}
+
+// ── Fullscreen ────────────────────────────────────────────────────────────
+
+void MainWindow::toggleFullscreen() {
+    m_fullscreen = !m_fullscreen;
+    if (m_fullscreen) {
+        if (m_navbar) m_navbar->hide();
+        showFullScreen();
+    } else {
+        if (m_navbar) m_navbar->show();
+        showNormal();
+        // Restore maximized if it was maximized before
+        if (m_settings->value("maximized", true).toBool())
+            showMaximized();
+    }
+}
+
+// ── Find in page ──────────────────────────────────────────────────────────
+
+void MainWindow::openFindBar() {
+    if (!m_findBar) return;
+    m_findBar->setVisible(true);
+    m_findEdit->setFocus();
+    m_findEdit->selectAll();
+}
+
+void MainWindow::closeFindBar() {
+    if (!m_findBar) return;
+    m_findBar->setVisible(false);
+    auto *br = currentBrowser();
+    if (br) br->findText(QString());  // clear highlight
+    if (m_findStatus) m_findStatus->setText("");
+}
+
+void MainWindow::findNext() {
+    auto *br = currentBrowser();
+    if (!br || !m_findEdit) return;
+    QString term = m_findEdit->text();
+    if (term.isEmpty()) { if (m_findStatus) m_findStatus->setText(""); return; }
+    br->findText(term, {}, [this](const QWebEngineFindTextResult &r) {
+        if (m_findStatus) {
+            if (r.numberOfMatches() == 0)
+                m_findStatus->setText("No results");
+            else
+                m_findStatus->setText(QString("%1/%2")
+                    .arg(r.activeMatch()).arg(r.numberOfMatches()));
+        }
+    });
+}
+
+void MainWindow::findPrev() {
+    auto *br = currentBrowser();
+    if (!br || !m_findEdit) return;
+    QString term = m_findEdit->text();
+    if (term.isEmpty()) return;
+    br->findText(term, QWebEnginePage::FindBackward, [this](const QWebEngineFindTextResult &r) {
+        if (m_findStatus) {
+            if (r.numberOfMatches() == 0)
+                m_findStatus->setText("No results");
+            else
+                m_findStatus->setText(QString("%1/%2")
+                    .arg(r.activeMatch()).arg(r.numberOfMatches()));
+        }
+    });
+}
+
+// ── Zoom ──────────────────────────────────────────────────────────────────
+
+QString MainWindow::hostOf(const QUrl &url) const {
+    return url.host().toLower();
+}
+
+void MainWindow::applyZoom(QWebEngineView *br, const QString &host) {
+    double factor = m_zoomLevels.value(host, 1.0);
+    br->setZoomFactor(factor);
+}
+
+void MainWindow::zoomIn() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString host = hostOf(br->url());
+    double f = qMin(m_zoomLevels.value(host, 1.0) + 0.1, 5.0);
+    m_zoomLevels[host] = f;
+    br->setZoomFactor(f);
+}
+
+void MainWindow::zoomOut() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString host = hostOf(br->url());
+    double f = qMax(m_zoomLevels.value(host, 1.0) - 0.1, 0.25);
+    m_zoomLevels[host] = f;
+    br->setZoomFactor(f);
+}
+
+void MainWindow::zoomReset() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString host = hostOf(br->url());
+    m_zoomLevels[host] = 1.0;
+    br->setZoomFactor(1.0);
+}
+
+// ── URL bar focus ─────────────────────────────────────────────────────────
+
+void MainWindow::focusUrlBar() {
+    if (m_urlBar) {
+        m_urlBar->setFocus();
+        m_urlBar->selectAll();
+    }
+}
+
+// ── Tab helpers ───────────────────────────────────────────────────────────
+
+void MainWindow::closeCurrentTab() {
+    int idx = m_tabs->currentIndex();
+    if (m_tabs->count() > 1) {
+        m_tabs->tabCloseRequested(idx);  // reuse the existing close logic
+    } else {
+        close();
+    }
+}
+
+void MainWindow::nextTab() {
+    int next = (m_tabs->currentIndex() + 1) % m_tabs->count();
+    m_tabs->setCurrentIndex(next);
+}
+
+void MainWindow::prevTab() {
+    int prev = (m_tabs->currentIndex() - 1 + m_tabs->count()) % m_tabs->count();
+    m_tabs->setCurrentIndex(prev);
+}
+
+void MainWindow::reopenLastTab() {
+    if (!m_data.contains("closed_tabs")) return;
+    QJsonArray closed = m_data["closed_tabs"].toArray();
+    if (closed.isEmpty()) return;
+    QString url = closed.last().toString();
+    closed.removeLast();
+    m_data["closed_tabs"] = closed;
+    newTab(url);
+}
+
+void MainWindow::bookmarkCurrentPage() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString url = br->url().toString();
+    QString title = br->title();
+    if (url.isEmpty() || url == "about:blank") return;
+    QJsonArray bm = m_data["bookmarks"].toArray();
+    for (const auto &v : bm)
+        if (v.toObject()["url"].toString() == url) return; // already bookmarked
+    QJsonObject entry;
+    entry["url"]   = url;
+    entry["title"] = title.isEmpty() ? url : title;
+    bm.append(entry);
+    m_data["bookmarks"] = bm;
+    saveData();
+}
+
+// ── Tab features ──────────────────────────────────────────────────────────
+
+void MainWindow::duplicateTab() {
+    auto *br = currentBrowser();
+    if (br) newTab(br->url().toString());
+}
+
+void MainWindow::pinTab() {
+    auto *tw = currentTabWidget();
+    if (!tw) return;
+    tw->isPinned = !tw->isPinned;
+    int idx = m_tabs->indexOf(tw);
+    QString title = m_tabs->tabText(idx);
+    if (tw->isPinned) {
+        if (!title.startsWith("📌")) m_tabs->setTabText(idx, "📌 " + title);
+    } else {
+        if (title.startsWith("📌 ")) m_tabs->setTabText(idx, title.mid(3));
+    }
+}
+
+void MainWindow::muteTab() {
+    auto *tw = currentTabWidget();
+    if (!tw || !tw->browser() || !tw->browser()->page()) return;
+    tw->isMuted = !tw->isMuted;
+    tw->browser()->page()->setAudioMuted(tw->isMuted);
+    int idx = m_tabs->indexOf(tw);
+    QString title = m_tabs->tabText(idx);
+    if (tw->isMuted) {
+        if (!title.startsWith("🔇")) m_tabs->setTabText(idx, "🔇 " + title);
+    } else {
+        if (title.startsWith("🔇 ")) m_tabs->setTabText(idx, title.mid(3));
+    }
+}
+
+void MainWindow::detachTab() {
+    int idx = m_tabs->currentIndex();
+    if (m_tabs->count() <= 1) return;
+    auto *tw = qobject_cast<TabWidget*>(m_tabs->widget(idx));
+    if (!tw) return;
+    QString url = tw->browser() ? tw->browser()->url().toString() : m_home;
+    // Close here, open in new window
+    if (tw->browser()) { tw->browser()->stop(); tw->browser()->setPage(nullptr); }
+    if (tw->pdfViewer()) { tw->pdfViewer()->stop(); tw->pdfViewer()->setPage(nullptr); }
+    m_tabs->removeTab(idx);
+    tw->deleteLater();
+    auto *w = new MainWindow(m_isPrivate);
+    w->newTab(url);
+    w->show();
+}
+
+void MainWindow::moveTabLeft() {
+    int idx = m_tabs->currentIndex();
+    if (idx > 0) m_tabs->tabBar()->moveTab(idx, idx - 1);
+}
+
+void MainWindow::moveTabRight() {
+    int idx = m_tabs->currentIndex();
+    if (idx < m_tabs->count() - 1) m_tabs->tabBar()->moveTab(idx, idx + 1);
+}
+
+void MainWindow::showTabContextMenu(const QPoint &pos) {
+    int idx = m_tabs->tabBar()->tabAt(pos);
+    if (idx < 0) return;
+    m_tabs->setCurrentIndex(idx);
+
+    QMenu menu(this);
+    auto *tw = qobject_cast<TabWidget*>(m_tabs->widget(idx));
+
+    menu.addAction("New Tab",         this, [this]() { newTab(); });
+    menu.addAction("Duplicate Tab",   this, &MainWindow::duplicateTab);
+    menu.addSeparator();
+
+    auto *pinA = menu.addAction(tw && tw->isPinned ? "Unpin Tab" : "Pin Tab");
+    connect(pinA, &QAction::triggered, this, &MainWindow::pinTab);
+
+    auto *muteA = menu.addAction(tw && tw->isMuted ? "Unmute Tab" : "Mute Tab");
+    connect(muteA, &QAction::triggered, this, &MainWindow::muteTab);
+
+    menu.addSeparator();
+    menu.addAction("Move Left",  this, &MainWindow::moveTabLeft);
+    menu.addAction("Move Right", this, &MainWindow::moveTabRight);
+    menu.addSeparator();
+    menu.addAction("Detach to Window", this, &MainWindow::detachTab);
+    menu.addSeparator();
+
+    auto *closeA = menu.addAction("Close Tab");
+    connect(closeA, &QAction::triggered, this, [this, idx]() {
+        emit m_tabs->tabCloseRequested(idx);
+    });
+    auto *closeOthers = menu.addAction("Close Other Tabs");
+    connect(closeOthers, &QAction::triggered, this, [this, idx]() {
+        for (int i = m_tabs->count() - 1; i >= 0; --i)
+            if (i != idx) emit m_tabs->tabCloseRequested(i);
+    });
+    menu.addAction("Reopen Closed Tab", this, &MainWindow::reopenLastTab);
+
+    menu.exec(m_tabs->tabBar()->mapToGlobal(pos));
+}
+
+// ── Page actions ──────────────────────────────────────────────────────────
+
+void MainWindow::savePage() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString suggested = QFileInfo(br->url().path()).fileName();
+    if (suggested.isEmpty()) suggested = "page";
+    if (!suggested.contains('.')) suggested += ".html";
+    QString path = FilePicker::getSaveFileName(this, "Save Page",
+        downloadDir() + "/" + suggested,
+        "HTML (*.html *.htm);;All (*)");
+    if (path.isEmpty()) return;
+    br->page()->save(path);
+}
+
+void MainWindow::viewSource() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString url = "view-source:" + br->url().toString();
+    newTab(url);
+}
+
+void MainWindow::printPage() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QString path = FilePicker::getSaveFileName(this, "Print to PDF",
+        downloadDir() + "/page.pdf", "PDF (*.pdf)");
+    if (path.isEmpty()) return;
+    br->page()->printToPdf(path);
+    QMessageBox::information(this, "Print", QString("PDF saved to:\n%1").arg(path));
+}
+
+void MainWindow::copyPageUrl() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QApplication::clipboard()->setText(br->url().toString());
+}
+
+void MainWindow::showPageInfo() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    QUrl url = br->url();
+    QString info = QString(
+        "URL:      %1\n"
+        "Title:    %2\n"
+        "Host:     %3\n"
+        "Scheme:   %4\n"
+        "Zoom:     %5%"
+    ).arg(url.toString())
+     .arg(br->title())
+     .arg(url.host())
+     .arg(url.scheme())
+     .arg(qRound(br->zoomFactor() * 100));
+    QMessageBox::information(this, "Page Info", info);
 }

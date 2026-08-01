@@ -11,12 +11,16 @@
 #include <QWebEngineScriptCollection>
 #include <QWebChannel>
 #include <QWebEngineNewWindowRequest>
+#include <QWebEngineFindTextResult>
 #include <QSettings>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QSplitter>
 #include <QJsonObject>
 #include <QJsonArray>
+#include <QLabel>
+#include <QKeyEvent>
+#include <QMap>
 #include <set>
 #include "adblocker.h"
 
@@ -29,6 +33,9 @@ public:
     explicit TabWidget(const QString &url, QWebEngineProfile *profile, QWidget *parent = nullptr);
     QWebEngineView *browser() const { return m_browser; }
     QWebEngineView *pdfViewer() const { return m_pdfViewer; }
+
+    bool isPinned = false;
+    bool isMuted  = false;
 
 private slots:
     void checkPdf(const QUrl &url);
@@ -49,6 +56,7 @@ public:
 
 protected:
     void closeEvent(QCloseEvent *event) override;
+    void keyPressEvent(QKeyEvent *event) override;
 
 private slots:
     void back();
@@ -61,6 +69,43 @@ private slots:
     void showToolsMenu();
     void showSettingsMenu();
 
+    // Find-in-page
+    void openFindBar();
+    void closeFindBar();
+    void findNext();
+    void findPrev();
+
+    // Fullscreen
+    void toggleFullscreen();
+
+    // Zoom
+    void zoomIn();
+    void zoomOut();
+    void zoomReset();
+
+    // Tab actions
+    void duplicateTab();
+    void pinTab();
+    void muteTab();
+    void detachTab();
+    void moveTabLeft();
+    void moveTabRight();
+    void showTabContextMenu(const QPoint &pos);
+    void closeCurrentTab();
+    void nextTab();
+    void prevTab();
+    void reopenLastTab();
+    void bookmarkCurrentPage();
+    void focusUrlBar();
+
+    // Page actions
+    void savePage();
+    void viewSource();
+    void printPage();
+    void copyPageUrl();
+    void showPageInfo();
+
+    // Tools
     void openTranslate();
     void openTranscript();
     void openSearch();
@@ -91,6 +136,7 @@ private slots:
 
 private:
     void buildUi();
+    void setupShortcuts();
     void restoreWindow();
     void injectAdblock();
     void injectDarkMode();
@@ -99,27 +145,41 @@ private:
     void applyTheme();
     void setupDns();
     QWebEngineView *currentBrowser();
+    TabWidget      *currentTabWidget();
     void updateTabTitle(TabWidget *tw, QWebEngineView *br, const QString &title);
     void recordHistory(const QUrl &url);
     void loadData();
     void saveData();
     QString configDir();
     QString downloadDir();
+    void applyZoom(QWebEngineView *br, const QString &host);
+    QString hostOf(const QUrl &url) const;
 
     bool m_isPrivate;
-    bool m_darkMode = false;
-    QAction *m_themeAction = nullptr;
-    QPushButton *m_themeBtn = nullptr;
+    bool m_darkMode    = false;
+    bool m_fullscreen  = false;
+    QAction    *m_themeAction = nullptr;
+    QPushButton *m_themeBtn  = nullptr;
+    QToolBar   *m_navbar     = nullptr;
+
+    // Find bar
+    QWidget    *m_findBar    = nullptr;
+    QLineEdit  *m_findEdit   = nullptr;
+    QLabel     *m_findStatus = nullptr;
+
     QWebEngineProfile *m_profile;
     QWebChannel *m_channel;
-    QTabWidget *m_tabs;
-    QLineEdit *m_urlBar;
-    QSettings *m_settings;
-    QTimer *m_autoSaveTimer;
+    QTabWidget  *m_tabs;
+    QLineEdit   *m_urlBar;
+    QSettings   *m_settings;
+    QTimer      *m_autoSaveTimer = nullptr;
 
     QJsonObject m_data;
     std::set<QString> m_seenUrls;
     QString m_home;
     QString m_configDir;
     QString m_dataFile;
+
+    // Per-host zoom levels  (host → factor, e.g. 1.25)
+    QMap<QString, double> m_zoomLevels;
 };
