@@ -1063,17 +1063,14 @@ textarea, select {
 }
 input::placeholder, textarea::placeholder { color: #5c6370 !important; }
 
-/* ── Buttons (exclude player + Shorts) ── */
-button:not(ytd-reel-video-renderer button):not(.ytp-button):not([class*="ytp-"]):not([id*="player"] button),
-[type="button"]:not(ytd-reel-video-renderer [type="button"]),
-[type="submit"], [type="reset"],
-[role="button"]:not(ytd-reel-video-renderer [role="button"]):not(.ytp-button) {
+/* ── Buttons ── */
+button, [type="button"], [type="submit"], [type="reset"],
+[role="button"] {
     background-color: #3e4451 !important;
     color: #abb2bf !important;
     border-color: #4b5263 !important;
 }
-button:not(ytd-reel-video-renderer button):not(.ytp-button):hover,
-[role="button"]:not(ytd-reel-video-renderer [role="button"]):not(.ytp-button):hover {
+button:hover, [role="button"]:hover {
     background-color: #4b5263 !important;
     color: #abb2bf !important;
 }
@@ -1446,49 +1443,9 @@ article[role="article"] {
 }
 
 /* ═══════════════════════════════════════════════════════════════════
-   YOUTUBE SHORTS — full exclusion, everything transparent/inherited
-   Shorts renders its own dark UI — our overrides break it
+   YOUTUBE SHORTS — NO CSS overrides at all for Shorts
+   Handled entirely by JS below to avoid specificity issues
    ═══════════════════════════════════════════════════════════════════ */
-ytd-reel-video-renderer,
-ytd-shorts,
-ytd-shorts #shorts-container,
-ytd-reel-shelf-renderer,
-ytd-shorts-lockup-view-model,
-ytd-shorts-lockup-view-model-v2,
-#shorts-inner-container,
-#shorts-container,
-ytd-shorts ytd-reel-video-renderer,
-ytd-reel-video-renderer #player-container,
-ytd-reel-video-renderer ytd-player,
-ytd-reel-video-renderer #shorts-player,
-ytd-reel-video-renderer .ytd-reel-video-renderer,
-/* Shorts navigation arrows + overlay UI */
-ytd-reel-video-renderer .navigation-button,
-ytd-reel-video-renderer button,
-ytd-reel-video-renderer [role="button"],
-ytd-reel-video-renderer #channel-info,
-ytd-reel-video-renderer #actions,
-ytd-reel-video-renderer #subscribe-button,
-ytd-reel-video-renderer yt-formatted-string,
-ytd-reel-video-renderer span,
-ytd-reel-video-renderer div,
-ytd-reel-video-renderer #overlay,
-ytd-shorts #overlay,
-.ytShortsVideoRenderer,
-.reel-player-overlay-renderer,
-ytd-reel-item-renderer,
-/* Shorts sidebar thumbnails on homepage */
-ytd-rich-shelf-renderer[is-shorts],
-ytd-rich-shelf-renderer[is-shorts] *,
-ytd-shorts-lockup-view-model *,
-ytd-shorts-lockup-view-model-v2 * {
-    background-color: transparent !important;
-    background: transparent !important;
-    color: inherit !important;
-    filter: none !important;
-    opacity: 1 !important;
-    border-color: transparent !important;
-}
 
 /* ── Video & images — NEVER touch ── */
 video, img, canvas, picture, svg, svg image,
@@ -1521,6 +1478,45 @@ iframe, embed, object {
     style.textContent = %1;
     (document.head || document.documentElement).appendChild(style);
 
+    // ── Shorts fixer ──
+    // CSS !important can't be overridden by descendants without JS.
+    // We inject a <style> that resets all Shorts elements to initial values,
+    // added AFTER the main dark style so it wins the cascade.
+    function fixShorts() {
+        const SHORTS_ID = '__sf_shorts_fix__';
+        if (document.getElementById(SHORTS_ID)) return;
+
+        // Only run on YouTube
+        if (!location.hostname.includes('youtube.com')) return;
+
+        const fix = document.createElement('style');
+        fix.id = SHORTS_ID;
+        fix.textContent = `
+            ytd-reel-video-renderer,
+            ytd-reel-video-renderer *,
+            ytd-shorts,
+            ytd-shorts *,
+            ytd-reel-shelf-renderer,
+            ytd-reel-shelf-renderer *,
+            ytd-shorts-lockup-view-model,
+            ytd-shorts-lockup-view-model *,
+            ytd-shorts-lockup-view-model-v2,
+            ytd-shorts-lockup-view-model-v2 *,
+            #shorts-container,
+            #shorts-container *,
+            ytd-reel-item-renderer,
+            ytd-reel-item-renderer * {
+                background-color: unset !important;
+                background: unset !important;
+                color: unset !important;
+                border-color: unset !important;
+                filter: none !important;
+                opacity: 1 !important;
+            }
+        `;
+        (document.head || document.documentElement).appendChild(fix);
+    }
+
     // Re-apply on SPA navigation (YouTube etc.)
     let scheduled = false;
     new MutationObserver(() => {
@@ -1531,8 +1527,13 @@ iframe, embed, object {
             if (!document.getElementById(STYLE_ID)) {
                 (document.head || document.documentElement).appendChild(style);
             }
+            fixShorts();
         });
     }).observe(document.documentElement, { childList: true, subtree: false });
+
+    // Run once on load too
+    if (document.readyState === 'complete') fixShorts();
+    else window.addEventListener('load', fixShorts, { once: true });
 })();
 )JS").arg("`" + css + "`");
 
