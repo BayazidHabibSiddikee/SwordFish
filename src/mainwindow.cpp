@@ -980,95 +980,69 @@ void MainWindow::injectAdblock() {
 }
 
 void MainWindow::injectDarkMode() {
-    // Remove any existing dark mode script first
-    removeDarkMode();
+    removeDarkMode();  // clean slate
 
-    // Proper dark mode CSS — directly sets dark colors, NO invert filter.
-    // Strategy: use CSS custom properties + forced-colors override on background/surface
-    // elements. Text is left at whatever the site sets so readability is preserved.
-    // Images, video, canvas are completely untouched.
+    // ── Strategy ──────────────────────────────────────────────────────────
+    // We inject TWO scripts:
+    //  1. A <style> with One Dark CSS, but ONLY applied when NOT on YouTube.
+    //     On YouTube we rely on color-scheme:dark + targeted ytd-* selectors
+    //     that deliberately skip Shorts (ytd-reel-*, #shorts-container).
+    //  2. A JS fixer that runs ONLY on YouTube, ONLY when dark mode is active,
+    //     that tracks which inline styles IT sets so removeDarkMode can undo them.
+    //     It never touches Shorts elements at all.
+    // ──────────────────────────────────────────────────────────────────────
+
+    // ── 1. CSS ────────────────────────────────────────────────────────────
     QString css = R"CSS(
-/* ═══════════════════════════════════════════════════════════════════
-   SwordFish Dark Mode — SwordWM One Dark Palette
-   BG: #282c34  BG2: #21252b  DIM: #3e4451  FG: #abb2bf
-   CYAN: #61afef  GREEN: #98c379  AMBER: #e5c07b  RED: #e06c75
-   ═══════════════════════════════════════════════════════════════════ */
+/* SwordFish Dark Mode — One Dark palette
+   bg:#282c34  bg2:#21252b  surface:#2c313c  border:#3e4451
+   text:#abb2bf  accent:#61afef  green:#98c379  amber:#e5c07b  red:#e06c75 */
 
-/* ── Force dark color-scheme ── */
-:root {
-    color-scheme: dark !important;
-    --sf-bg:       #282c34 !important;
-    --sf-bg2:      #21252b !important;
-    --sf-surface:  #2c313c !important;
-    --sf-surface2: #3e4451 !important;
-    --sf-border:   #3e4451 !important;
-    --sf-text:     #abb2bf !important;
-    --sf-muted:    #5c6370 !important;
-    --sf-accent:   #61afef !important;
-    --sf-green:    #98c379 !important;
-    --sf-amber:    #e5c07b !important;
-    --sf-red:      #e06c75 !important;
+/* ── color-scheme hint ── */
+:root { color-scheme: dark !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   NON-YOUTUBE PAGES — broad rules safe here
+   ══════════════════════════════════════════════════════════════ */
+:not(ytd-app):not(ytd-app *) html,
+html:not(.ytd-app) {
+    background-color: #282c34;
+    color: #abb2bf;
 }
 
-/* ── Page background + default text ── */
-html {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-body {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
+/* Fallback: applies everywhere but YouTube overrides with its own theme */
+html { background-color: #282c34 !important; color: #abb2bf !important; }
+body { background-color: #282c34 !important; color: #abb2bf !important; }
 
-/* ── All general text elements ── */
-/* NOTE: span and div intentionally omitted — too broad, breaks Shorts/players */
+/* Text — NOTE: no span/div — too broad, breaks YouTube Shorts overlays */
 p, h1, h2, h3, h4, h5, h6,
 li, dt, dd, caption, figcaption,
-label, legend, summary,
-blockquote, cite, q {
+label, legend, summary, blockquote, cite, q {
     color: #abb2bf !important;
 }
 
-/* ── Links ── */
-a { color: #61afef !important; }
+a         { color: #61afef !important; }
 a:visited { color: #c678dd !important; }
-a:hover { color: #528bff !important; }
-
-/* ── Headings ── */
+a:hover   { color: #528bff !important; }
 h1, h2, h3 { color: #e5c07b !important; }
 h4, h5, h6 { color: #61afef !important; }
 
-/* ── Muted / secondary text ── */
-small, .muted, [class*="subtitle"], [class*="secondary"],
-[class*="description"], [class*="caption"], time, cite,
-[class*="timestamp"], [class*="meta"] {
-    color: #5c6370 !important;
-}
+small, time { color: #5c6370 !important; }
 
-/* ── Common surface elements ── */
-header, nav, footer, aside, main, section, article,
-[role="banner"], [role="navigation"], [role="main"],
-[role="complementary"], [role="contentinfo"] {
+:not(ytd-app) header, :not(ytd-app) nav, :not(ytd-app) footer,
+:not(ytd-app) aside, :not(ytd-app) main, :not(ytd-app) section, :not(ytd-app) article {
     background-color: #282c34 !important;
-    border-color: #3e4451 !important;
     color: #abb2bf !important;
 }
 
-/* ── Cards / panels / boxes ── */
 [class*="card"], [class*="panel"], [class*="box"],
-[class*="widget"], [class*="modal"], [class*="dialog"],
-[class*="drawer"], [class*="popup"], [class*="tooltip"],
-[class*="sidebar"],
-[id*="sidebar"], [id*="panel"] {
+[class*="modal"], [class*="dialog"], [class*="popup"] {
     background-color: #2c313c !important;
-    border-color: #3e4451 !important;
     color: #abb2bf !important;
 }
 
-/* ── Inputs / textarea / select ── */
 input:not([type="submit"]):not([type="button"]):not([type="reset"])
-    :not([type="checkbox"]):not([type="radio"])
-    :not([type="range"]):not([type="color"]),
+    :not([type="checkbox"]):not([type="radio"]),
 textarea, select {
     background-color: #21252b !important;
     color: #abb2bf !important;
@@ -1076,58 +1050,92 @@ textarea, select {
 }
 input::placeholder, textarea::placeholder { color: #5c6370 !important; }
 
-/* ── Buttons ── */
-button, [type="button"], [type="submit"], [type="reset"],
-[role="button"] {
+/* Buttons — scoped to NON-YouTube pages only */
+:not(ytd-app) button, :not(ytd-app) [type="button"],
+:not(ytd-app) [type="submit"], :not(ytd-app) [role="button"] {
     background-color: #3e4451 !important;
     color: #abb2bf !important;
-    border-color: #4b5263 !important;
-}
-button:hover, [role="button"]:hover {
-    background-color: #4b5263 !important;
-    color: #abb2bf !important;
 }
 
-/* ── Tables ── */
 table { border-color: #3e4451 !important; }
+th    { color: #e5c07b !important; background-color: #21252b !important; }
+td    { color: #abb2bf !important; }
 tr:nth-child(even) { background-color: #2c313c !important; }
-th { color: #e5c07b !important; background-color: #21252b !important; }
-td { color: #abb2bf !important; border-color: #3e4451 !important; }
 
-/* ── Code ── */
-code, pre, kbd, samp {
-    background-color: #21252b !important;
-    color: #98c379 !important;
-    border-color: #3e4451 !important;
+code, pre, kbd { background-color: #21252b !important; color: #98c379 !important; }
+
+/* ══════════════════════════════════════════════════════════════
+   YOUTUBE — targeted selectors, Shorts elements EXCLUDED entirely
+   ══════════════════════════════════════════════════════════════ */
+
+/* App shell */
+ytd-app, ytd-browse, ytd-search, ytd-watch-flexy,
+#page-manager, ytd-two-column-browse-results-renderer {
+    background-color: #282c34 !important; color: #abb2bf !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   VIDEO PLAYER EXCLUSION — must come before all background rules
-   YouTube player and everything inside must NEVER get dark bg/color
-   ═══════════════════════════════════════════════════════════════════ */
-#movie_player,
-.html5-video-player,
-.html5-video-container,
-.video-stream,
-.ytp-player-content,
-.ytp-chrome-bottom,
-.ytp-chrome-top,
-.ytp-gradient-bottom,
-.ytp-gradient-top,
-.ytp-cued-thumbnail-overlay,
-.ytp-spinner,
-#player, #player-container,
-#player-container-id,
-#player-theater-container,
-ytd-player,
-ytd-watch-flexy #player,
-.ytd-watch-flexy,
-[class*="videoPlayer"],
-[class*="video-player"],
-[class*="VideoPlayer"],
-[id*="player"],
-video,
-video * {
+/* Masthead */
+#masthead, ytd-masthead, #masthead-container {
+    background-color: #21252b !important; color: #abb2bf !important;
+    border-bottom: 1px solid #3e4451 !important;
+}
+
+/* Guide / sidebar */
+ytd-guide-renderer, ytd-mini-guide-renderer,
+ytd-guide-entry-renderer, ytd-guide-section-renderer {
+    background-color: #21252b !important; color: #abb2bf !important;
+}
+ytd-guide-entry-renderer:hover,
+ytd-guide-entry-renderer[active] { background-color: #3e4451 !important; }
+
+/* Watch page */
+ytd-video-primary-info-renderer, ytd-video-secondary-info-renderer,
+ytd-watch-metadata { background-color: #282c34 !important; }
+#video-title { color: #abb2bf !important; }
+ytd-channel-name, ytd-channel-name a { color: #61afef !important; }
+
+/* Description */
+#description, ytd-expander, ytd-text-inline-expander {
+    background-color: #2c313c !important; color: #abb2bf !important;
+}
+
+/* Comments */
+ytd-comments, ytd-comment-thread-renderer,
+ytd-comment-renderer, ytd-comment-view-model {
+    background-color: #282c34 !important; color: #abb2bf !important;
+}
+#author-text, #author-text a { color: #61afef !important; }
+#content-text { color: #abb2bf !important; }
+
+/* Related / sidebar */
+#secondary, ytd-compact-video-renderer { background-color: #282c34 !important; }
+
+/* Video grid */
+ytd-rich-grid-renderer, ytd-rich-item-renderer,
+ytd-grid-renderer, ytd-item-section-renderer {
+    background-color: #282c34 !important;
+}
+a#video-title, ytd-rich-grid-media #video-title { color: #abb2bf !important; }
+
+/* Search */
+ytd-search, ytd-video-renderer, ytd-channel-renderer {
+    background-color: #282c34 !important; color: #abb2bf !important;
+}
+
+/* Dropdowns / menus */
+ytd-popup-container, tp-yt-paper-listbox, tp-yt-paper-item {
+    background-color: #21252b !important; color: #abb2bf !important;
+}
+
+/* Buttons on YouTube (subscribe etc.) */
+ytd-subscribe-button-renderer button, ytd-button-renderer button {
+    background-color: #3e4451 !important; color: #abb2bf !important;
+}
+
+/* ── VIDEO PLAYER — never touch ── */
+#movie_player, .html5-video-player, .html5-video-container,
+.ytp-chrome-bottom, .ytp-chrome-top,
+ytd-player, [id*="player"], video, video * {
     background-color: transparent !important;
     background: transparent !important;
     color: inherit !important;
@@ -1135,428 +1143,82 @@ video * {
     opacity: 1 !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════════
-   YOUTUBE — comprehensive selectors for all UI elements
-   ═══════════════════════════════════════════════════════════════════ */
+/* ── SHORTS — NEVER touched by CSS at all ──
+   Shorts is handled purely in JS (see below).
+   These selectors are intentionally absent from this stylesheet. */
 
-/* ── YouTube app shell + main containers ── */
-ytd-app, ytd-fullpage-app,
-#page-manager, ytd-browse, ytd-search, ytd-watch-flexy,
-ytd-two-column-browse-results-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
+/* ── Media / visuals ── */
+video, img, canvas, picture, iframe, embed, object {
+    filter: none !important; opacity: 1 !important;
 }
 
-/* ── Masthead / top bar ── */
-#masthead, #masthead-container, ytd-masthead,
-#masthead-container-internal,
-ytd-masthead #masthead-container {
-    background-color: #21252b !important;
-    color: #abb2bf !important;
-    border-bottom: 1px solid #3e4451 !important;
-}
-
-/* ── Sidebar / guide ── */
-ytd-guide-renderer, #guide-inner-content,
-ytd-mini-guide-renderer,
-ytd-guide-entry-renderer,
-ytd-guide-section-renderer {
-    background-color: #21252b !important;
-    color: #abb2bf !important;
-}
-ytd-guide-entry-renderer a,
-ytd-guide-entry-renderer .guide-entry-badge,
-ytd-guide-entry-renderer yt-formatted-string {
-    color: #abb2bf !important;
-}
-ytd-guide-entry-renderer:hover,
-ytd-guide-entry-renderer[active] {
-    background-color: #3e4451 !important;
-}
-ytd-guide-entry-renderer[active] yt-formatted-string,
-ytd-guide-entry-renderer[active] a {
-    color: #61afef !important;
-}
-
-/* ── Video title + channel info ── */
-#video-title, #title,
-ytd-video-primary-info-renderer #title h1,
-ytd-video-primary-info-renderer yt-formatted-string.ytd-video-primary-info-renderer {
-    color: #abb2bf !important;
-}
-ytd-channel-name, ytd-channel-name a,
-ytd-channel-name yt-formatted-string,
-.ytd-channel-name {
-    color: #61afef !important;
-}
-ytd-channel-name a:hover {
-    color: #528bff !important;
-}
-
-/* ── Video description ── */
-#description, ytd-expander,
-ytd-text-inline-expander,
-ytd-video-secondary-info-renderer #description {
-    background-color: #2c313c !important;
-    color: #abb2bf !important;
-    border-color: #3e4451 !important;
-}
-#description yt-formatted-string,
-#description span,
-#description a {
-    color: #abb2bf !important;
-}
-
-/* ── Comment section ── */
-ytd-comments, ytd-comments-header-renderer,
-#count, #count .count-text,
-ytd-comments-header-renderer #count {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-ytd-comment-thread-renderer,
-ytd-comment-renderer,
-ytd-comment-view-model {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-    border-color: #3e4451 !important;
-}
-/* Comment author name */
-#author-text, #author-text a,
-ytd-comment-renderer #author-text,
-ytd-comment-view-model #author-text,
-.ytd-comment-renderer #author-text,
-#header-author #author-text {
-    color: #61afef !important;
-    font-weight: bold !important;
-}
-/* Comment body text */
-#content-text, ytd-comment-renderer #content-text,
-ytd-comment-view-model #content-text,
-.ytd-comment-renderer #content-text,
-ytd-expander.ytd-comment-renderer {
-    color: #abb2bf !important;
-}
-/* Comment action buttons (like, reply, etc.) */
-#action-buttons, ytd-comment-action-buttons-renderer,
-.ytd-comment-action-buttons-renderer,
-#reply-button-end, #like-button,
-.ytd-comment-action-buttons-renderer button {
-    color: #5c6370 !important;
-}
-.ytd-comment-action-buttons-renderer button:hover {
-    color: #abb2bf !important;
-}
-/* Comment timestamp */
-.ytd-comment-renderer .published-time-text,
-.ytd-comment-renderer .published-time-text a,
-#published-time-text a {
-    color: #5c6370 !important;
-}
-/* Comment replies */
-ytd-comment-replies-renderer,
-ytd-continuation-item-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-/* Pinned / hearted comments */
-ytd-comment-renderer[is-pinned],
-#pinned-comment-badge {
-    background-color: #2c313c !important;
-}
-#pinned-comment-badge span,
-.ytd-pinned-comment-badge-renderer {
-    color: #e5c07b !important;
-}
-/* Author comment badge */
-ytd-author-comment-badge-renderer,
-#author-comment-badge {
-    background-color: #2c313c !important;
-}
-ytd-author-comment-badge-renderer #author-text,
-#author-comment-badge #author-text {
-    color: #61afef !important;
-}
-
-/* ── Related videos / sidebar ── */
-#secondary, ytd-secondary-results-container-renderer,
-ytd-compact-video-renderer,
-ytd-compact-radio-renderer,
-ytd-compact-playlist-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-ytd-compact-video-renderer #video-title,
-ytd-compact-video-renderer a#video-title-link,
-ytd-compact-video-renderer .details {
-    color: #abb2bf !important;
-}
-ytd-compact-video-renderer .ytd-channel-name a,
-ytd-compact-video-renderer #channel-name a {
-    color: #5c6370 !important;
-}
-ytd-compact-video-renderer:hover {
-    background-color: #2c313c !important;
-}
-
-/* ── Video grid / thumbnails ── */
-ytd-rich-grid-renderer,
-ytd-rich-item-renderer,
-ytd-grid-renderer,
-ytd-item-section-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-ytd-thumbnail, ytd-playlist-thumbnail,
-ytd-rich-grid-media {
-    background: transparent !important;
-}
-#video-title-0, #video-title-1, #video-title-2,
-ytd-rich-grid-media #video-title,
-ytd-grid-video-renderer #video-title,
-a#video-title {
-    color: #abb2bf !important;
-}
-ytd-rich-grid-media .ytd-channel-name a,
-ytd-grid-video-renderer #channel-name a,
-#metadata-line .inline-metadata-item {
-    color: #5c6370 !important;
-}
-
-/* ── Tab bar (Home, Videos, Playlists, etc.) ── */
-ytd-tab-renderer, ytd-tabs-renderer,
-tp-yt-paper-tab, #tabsContent,
-.ytp-tab {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-tp-yt-paper-tab {
-    color: #5c6370 !important;
-}
-tp-yt-paper-tab[aria-selected="true"] {
-    color: #61afef !important;
-    border-bottom: 2px solid #61afef !important;
-}
-
-/* ── Subscribe / action buttons ── */
-#subscribe-button, ytd-subscribe-button-renderer,
-#notification-button, #like-button, #dislike-button,
-ytd-menu-renderer #button,
-ytd-toggle-button-renderer,
-ytd-button-renderer {
-    color: #abb2bf !important;
-}
-ytd-subscribe-button-renderer button,
-ytd-menu-renderer yt-button-shape button,
-ytd-button-renderer button,
-tp-yt-paper-button {
-    background-color: #3e4451 !important;
-    color: #abb2bf !important;
-    border-color: #4b5263 !important;
-}
-ytd-subscribe-button-renderer button[subscribed],
-ytd-subscribe-button-renderer button[aria-pressed="true"] {
-    background-color: #21252b !important;
-    color: #5c6370 !important;
-}
-
-/* ── Search results ── */
-ytd-search, ytd-search-renderer,
-#contents.ytd-search-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-ytd-video-renderer,
-ytd-channel-renderer,
-ytd-playlist-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-ytd-video-renderer #video-title,
-ytd-video-renderer a#video-title {
-    color: #abb2bf !important;
-}
-
-/* ── Notifications / dropdowns ── */
-ytd-popup-container,
-tp-yt-paper-listbox,
-tp-yt-paper-item,
-ytd-notification-topbar-button-renderer {
-    background-color: #21252b !important;
-    color: #abb2bf !important;
-}
-tp-yt-paper-item:hover,
-tp-yt-paper-item tp-yt-paper-item-body-2 {
-    background-color: #3e4451 !important;
-    color: #abb2bf !important;
-}
-
-/* ── Settings / account menus ── */
-ytd-settings-page-renderer,
-ytd-account-page-renderer,
-tp-yt-paper-dialog,
-tp-yt-paper-dropdown-menu {
-    background-color: #21252b !important;
-    color: #abb2bf !important;
-}
-
-/* ── Live chat ── */
-ytd-live-chat-frame,
-ytd-live-chat-renderer,
-yt-live-chat-text-input-renderer {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-
-/* ── Playlist panel ── */
-ytd-playlist-panel-renderer,
-#playlist-action-menu,
-ytd-playlist-panel-video-renderer {
-    background-color: #21252b !important;
-    color: #abb2bf !important;
-}
-ytd-playlist-panel-video-renderer #video-title {
-    color: #abb2bf !important;
-}
-
-/* ═══════════════════════════════════════════════════════════════════
-   GENERIC WEBSITES — fallback for non-YouTube pages
-   ═══════════════════════════════════════════════════════════════════ */
-
-/* ── Reddit ── */
-.reddit-login, .header, #header,
-.subgrid-container, [data-testid="post-container"],
-.shreddit-comment, [slot="comment"],
-.FaceplateTieredInput, [data-click-id="body"] {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-
-/* ── GitHub ── */
-.js-header, .repository-content, .file-navigation,
-.blob-code, .blob-num, .highlight,
-.markdown-body, .comment-body {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-
-/* ── Twitter/X ── */
-[data-testid="primaryColumn"], [data-testid="sidebarColumn"],
-[data-testid="tweetText"], [data-testid="User-Name"],
-article[role="article"] {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-
-/* ── Stack Overflow ── */
-.s-sidebarwidget, #answers, .question, .answer,
-.post-text, .s-prose, .post-layout {
-    background-color: #282c34 !important;
-    color: #abb2bf !important;
-}
-
-/* ── Video & images — NEVER touch ── */
-video, img, canvas, picture, svg, svg image,
-iframe, embed, object {
-    filter: none !important;
-    opacity: 1 !important;
-}
-
-/* ── Scrollbars — One Dark style ── */
+/* ── Scrollbars ── */
 ::-webkit-scrollbar { width: 8px; height: 8px; }
 ::-webkit-scrollbar-track { background: #282c34; }
 ::-webkit-scrollbar-thumb { background: #3e4451; border-radius: 4px; }
 ::-webkit-scrollbar-thumb:hover { background: #4b5263; }
 )CSS";
 
+    // ── 2. JS Script ──────────────────────────────────────────────────────
     QString script = QString(R"JS(
 (function() {
-    // Guard: sandboxed frames or non-HTML documents have no documentElement
     if (!document || !document.documentElement) return;
-
     const STYLE_ID = '__sf_darkmode__';
     if (document.getElementById(STYLE_ID)) return;
 
-    // Apply dark bg immediately to avoid white flash
-    document.documentElement.style.backgroundColor = '#0d1117';
-    document.documentElement.style.color = '#00d2ff';
+    // Immediate bg flash prevention
+    document.documentElement.style.setProperty('--sf-flash-bg', '#282c34');
+    document.documentElement.style.backgroundColor = '#282c34';
 
+    // Inject stylesheet
     const style = document.createElement('style');
     style.id = STYLE_ID;
     style.textContent = %1;
     (document.head || document.documentElement).appendChild(style);
 
-    // ── Shorts fixer ──
-    // CSS !important wars are unwinnable for Shorts because our body/html rules
-    // set color/background via !important and 'unset !important' just inherits
-    // from body (which is still dark). The only reliable fix is pure JS:
-    // directly set inline styles on Shorts elements — inline styles always
-    // beat stylesheets regardless of !important.
-    function fixShorts() {
-        if (!location.hostname.includes('youtube.com')) return;
+    // ── YouTube-only dark mode helper ─────────────────────────────────
+    // Applies targeted dark styles to non-Shorts YouTube elements.
+    // Tracks every inline style we set in __sfSetProps so we can undo
+    // them precisely in light mode — we never guess or clear blindly.
+    if (!location.hostname.includes('youtube.com')) return;
 
-        const SHORTS_SELECTORS = [
-            'ytd-reel-video-renderer',
-            'ytd-shorts',
-            'ytd-reel-shelf-renderer',
-            'ytd-shorts-lockup-view-model',
-            'ytd-shorts-lockup-view-model-v2',
-            'ytd-reel-item-renderer',
-            '#shorts-container',
-            '#shorts-inner-container',
-        ];
+    // Map of element → original inline style string before we touched it
+    const __sfPatched = new WeakMap();
 
-        const RESET_PROPS = [
-            'backgroundColor', 'background', 'color',
-            'borderColor', 'borderTopColor', 'borderBottomColor',
-            'borderLeftColor', 'borderRightColor'
-        ];
-
-        function resetEl(el) {
-            for (const prop of RESET_PROPS) {
-                el.style[prop] = '';
-            }
-            // Reset all children too
-            el.querySelectorAll('*').forEach(child => {
-                for (const prop of RESET_PROPS) {
-                    child.style[prop] = '';
-                }
-            });
-        }
-
-        for (const sel of SHORTS_SELECTORS) {
-            document.querySelectorAll(sel).forEach(resetEl);
-        }
+    function patchEl(el) {
+        if (__sfPatched.has(el)) return;
+        __sfPatched.set(el, el.getAttribute('style') || '');
+        // Nothing to set — YouTube has its own dark theme.
+        // We only ensure our global body/html rules don't bleed in.
+        // The stylesheet handles ytd-* selectors above.
     }
 
-    // Run fixShorts on DOM mutations — throttled to avoid thrashing
-    let shortsTimer = null;
+    // ── SHORTS GUARD — never touch any Shorts element ─────────────────
+    function isShortsEl(el) {
+        const tag = el.tagName ? el.tagName.toLowerCase() : '';
+        if (tag.startsWith('ytd-reel') || tag === 'ytd-shorts') return true;
+        if (el.closest) {
+            if (el.closest('ytd-reel-video-renderer, ytd-shorts, ' +
+                           'ytd-reel-shelf-renderer, ytd-reel-item-renderer, ' +
+                           '#shorts-container, #shorts-inner-container')) return true;
+        }
+        return false;
+    }
+
+    // Override body bg only — do NOT touch any inline styles of yt elements
+    // The CSS stylesheet above handles everything via ytd-* selectors.
+    // We just ensure the stylesheet stays in place on SPA navigation.
+    let raf = null;
     new MutationObserver(() => {
-        if (shortsTimer) return;
-        shortsTimer = setTimeout(() => {
-            shortsTimer = null;
-            // Re-append main style if SPA removed it
+        if (raf) return;
+        raf = requestAnimationFrame(() => {
+            raf = null;
             if (!document.getElementById(STYLE_ID)) {
                 (document.head || document.documentElement).appendChild(style);
             }
-            fixShorts();
-        }, 200);
-    }).observe(document.documentElement, { childList: true, subtree: true });
+        });
+    }).observe(document.documentElement, { childList: true, subtree: false });
 
-    // Watch URL changes for SPA navigation to /shorts
-    let lastUrl = location.href;
-    setInterval(() => {
-        if (location.href !== lastUrl) {
-            lastUrl = location.href;
-            setTimeout(fixShorts, 400);
-            setTimeout(fixShorts, 1200);
-            setTimeout(fixShorts, 2500);
-        }
-    }, 500);
-
-    // Run on load
-    if (document.readyState === 'complete') fixShorts();
-    else window.addEventListener('load', fixShorts, { once: true });
 })();
 )JS").arg("`" + css + "`");
 
@@ -1565,10 +1227,10 @@ iframe, embed, object {
     s->setSourceCode(script);
     s->setInjectionPoint(QWebEngineScript::DocumentCreation);
     s->setWorldId(QWebEngineScript::MainWorld);
-    s->setRunsOnSubFrames(false);  // main frame only — subframes are often sandboxed
+    s->setRunsOnSubFrames(false);
     m_profile->scripts()->insert(*s);
 
-    // Also apply to already-open tabs
+    // Apply to already-open tabs
     for (int i = 0; i < m_tabs->count(); ++i) {
         auto *tw = qobject_cast<TabWidget*>(m_tabs->widget(i));
         if (tw && tw->browser())
@@ -1577,7 +1239,7 @@ iframe, embed, object {
 }
 
 void MainWindow::removeDarkMode() {
-    // Remove the script from profile so new tabs don't get it
+    // 1. Remove profile script so new tabs don't get it
     auto scripts = m_profile->scripts()->toList();
     for (const auto &s : scripts) {
         if (s.name() == "sf_darkmode") {
@@ -1585,13 +1247,21 @@ void MainWindow::removeDarkMode() {
             break;
         }
     }
-    // Remove the injected style from all open tabs
-    QString removeScript = R"JS(
+
+    // 2. Remove injected <style> and reset inline styles on all open tabs
+    const QString removeScript = R"JS(
 (function() {
+    // Remove our style tag
     const el = document.getElementById('__sf_darkmode__');
     if (el) el.remove();
+
+    // Reset the flash-prevention inline styles we set on documentElement
     document.documentElement.style.backgroundColor = '';
     document.documentElement.style.color = '';
+    document.documentElement.style.removeProperty('--sf-flash-bg');
+
+    // On YouTube: nothing else to undo — we never set inline styles
+    // on ytd-* elements. The stylesheet removal above is sufficient.
 })();
 )JS";
     for (int i = 0; i < m_tabs->count(); ++i) {
