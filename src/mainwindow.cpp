@@ -3,6 +3,12 @@
 #include "styles.h"
 #include "folder_picker.h"
 #include "file_picker.h"
+#include "pip_window.h"
+#include "password_manager.h"
+#include "extension_system.h"
+#include "sync_manager.h"
+#include "media_bar.h"
+#include "reading_mode.h"
 
 #include <QWebEngineGlobalSettings>
 #include "tools/pdf_tools.h"
@@ -197,6 +203,40 @@ MainWindow::MainWindow(bool isPrivate, QWidget *parent)
     restoreWindow();
     injectAdblock();
     applyTheme();
+
+    // ── Feature init ──────────────────────────────────────────────────────
+    m_passwords  = new PasswordManager(m_configDir + "/passwords.json", this);
+    m_passwords->load();
+
+    m_extensions = new ExtensionSystem(m_configDir + "/extensions", m_profile, this);
+    m_extensions->loadAll();
+
+    m_sync = new SyncManager(this);
+    connect(m_sync, &SyncManager::syncFileChanged, this, [this](const QString &path) {
+        QJsonObject imported = m_sync->importData(path);
+        if (!imported.isEmpty()) {
+            // Merge silently
+            QJsonArray bm = m_data["bookmarks"].toArray();
+            QSet<QString> seen;
+            for (const auto &v : bm) seen.insert(v.toObject()["url"].toString());
+            for (const auto &v : imported["bookmarks"].toArray()) {
+                if (!seen.contains(v.toObject()["url"].toString())) bm.append(v);
+            }
+            m_data["bookmarks"] = bm;
+            saveData();
+        }
+    });
+
+    m_reader = new ReadingMode(this);
+    connect(m_reader, &ReadingMode::activated,   this, [this]{ /* could update btn */ });
+    connect(m_reader, &ReadingMode::deactivated, this, [this]{ });
+
+    // Password capture: connect to tab URL changes
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
+        auto *br = currentBrowser();
+        if (br && br->page() && m_passwords)
+            m_passwords->injectCapture(br->page());
+    });
 }
 
 QString MainWindow::configDir() {
@@ -411,13 +451,20 @@ void MainWindow::buildUi() {
     connect(findPrevBtn,  &QPushButton::clicked, this, &MainWindow::findPrev);
     connect(findCloseBtn, &QPushButton::clicked, this, &MainWindow::closeFindBar);
 
-    // ── Central widget: tabs + find bar stacked ──
+    // ── Central widget: tabs + find bar + media bar stacked ──
     auto *central = new QWidget(this);
     auto *centralLayout = new QVBoxLayout(central);
     centralLayout->setContentsMargins(0, 0, 0, 0);
     centralLayout->setSpacing(0);
     centralLayout->addWidget(m_tabs);
     centralLayout->addWidget(m_findBar);
+
+    // Media bar (hidden by default)
+    m_mediaBar = new MediaBar(central);
+    m_mediaBar->setVisible(false);
+    centralLayout->addWidget(m_mediaBar);
+    connect(m_mediaBar, &MediaBar::pipRequested, this, &MainWindow::openPip);
+
     setCentralWidget(central);
 
     // ── Tab bar context menu ──
@@ -2572,6 +2619,25 @@ void MainWindow::setupShortcuts() {
     newTabAction->setShortcutContext(Qt::WindowShortcut);
     connect(newTabAction, &QAction::triggered, this, [this]() { newTab(); });
     addAction(newTabAction);
+
+    // New feature shortcuts
+    struct SC2 { QKeySequence key; void(MainWindow::*slot)(); };
+    const SC2 extras[] = {
+        { QKeySequence("Ctrl+Shift+P"), &MainWindow::openPip            },
+        { QKeySequence("Ctrl+Shift+K"), &MainWindow::openPasswordManager},
+        { QKeySequence("Ctrl+Shift+A"), &MainWindow::autofillPassword   },
+        { QKeySequence("Ctrl+Shift+E"), &MainWindow::openExtensions     },
+        { QKeySequence("Ctrl+Shift+S"), &MainWindow::openSync           },
+        { QKeySequence("Ctrl+Shift+M"), &MainWindow::toggleMediaBar     },
+        { QKeySequence("Ctrl+Shift+R"), &MainWindow::toggleReadingMode  },
+    };
+    for (auto &sc : extras) {
+        auto *a = new QAction(this);
+        a->setShortcut(sc.key);
+        a->setShortcutContext(Qt::WindowShortcut);
+        connect(a, &QAction::triggered, this, sc.slot);
+        addAction(a);
+    }
 }
 
 void MainWindow::keyPressEvent(QKeyEvent *event) {
@@ -2900,4 +2966,77 @@ void MainWindow::showPageInfo() {
      .arg(url.scheme())
      .arg(qRound(br->zoomFactor() * 100));
     QMessageBox::information(this, "Page Info", info);
+}
+
+// ── Picture-in-Picture ────────────────────────────────────────────────────
+
+void MainWindow::openPip() {
+    auto *br = currentBrowser();
+    if (!br) return;
+    if (m_pip) { m_pip->close(); m_pip = nullptr; return; }
+    m_pip = new PipWindow(br, this);
+    connect(m_pip, &QObject::destroyed, this, [this]() { m_pip = nullptr; });
+    m_pip->show();
+}
+
+// ── Password Manager ──────────────────────────────────────────────────────
+
+void MainWindow::openPasswordManager() {
+    if (m_passwords) m_passwords->showManagerDialog(this);
+}
+
+void MainWindow::autofillPassword() {
+    auto *br = currentBrowser();
+    if (!br || !m_passwords) return;
+    QString host = br->url().host();
+    auto creds = m_passwords->credentialsForHost(host);
+    if (creds.isEmpty()) {
+        // Prompt to save
+        bool ok;
+        QString user = QInputDialog::getText(this, "Save Password",
+            "Username for " + host + ":", QLineEdit::Normal, "", &ok);
+        if (!ok || user.isEmpty()) return;
+        QString pass = QInputDialog::getText(this, "Save Password",
+            "Password:", QLineEdit::Password, "", &ok);
+        if (!ok) return;
+        m_passwords->addCredential({host, user, pass, br->url().toString()});
+        QMessageBox::information(this, "Password Saved",
+            QString("Saved credentials for %1").arg(host));
+    } else {
+        m_passwords->autofill(br->page(), host);
+    }
+}
+
+// ── Extensions ───────────────────────────────────────────────────────────
+
+void MainWindow::openExtensions() {
+    if (m_extensions) m_extensions->showManagerDialog(this);
+}
+
+// ── Sync ──────────────────────────────────────────────────────────────────
+
+void MainWindow::openSync() {
+    if (m_sync) m_sync->showSyncDialog(m_data, this);
+}
+
+// ── Media Controls ────────────────────────────────────────────────────────
+
+void MainWindow::toggleMediaBar() {
+    if (!m_mediaBar) return;
+    bool show = !m_mediaBar->isVisible();
+    m_mediaBar->setVisible(show);
+    if (show) {
+        auto *br = currentBrowser();
+        if (br) m_mediaBar->attachTo(br);
+    } else {
+        m_mediaBar->detach();
+    }
+}
+
+// ── Reading Mode ──────────────────────────────────────────────────────────
+
+void MainWindow::toggleReadingMode() {
+    auto *br = currentBrowser();
+    if (!br || !m_reader) return;
+    m_reader->toggle(br->page());
 }

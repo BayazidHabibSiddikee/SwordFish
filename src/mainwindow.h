@@ -23,6 +23,18 @@
 #include <QMap>
 #include <set>
 #include "adblocker.h"
+#include "pip_window.h"
+#include "password_manager.h"
+#include "extension_system.h"
+#include "sync_manager.h"
+#include "media_bar.h"
+#include "reading_mode.h"
+#include "pip_window.h"
+#include "password_manager.h"
+#include "extension_system.h"
+#include "sync_manager.h"
+#include "media_bar.h"
+#include "reading_mode.h"
 
 class CustomWebPage;
 
@@ -105,6 +117,15 @@ private slots:
     void copyPageUrl();
     void showPageInfo();
 
+    // New features
+    void openPip();
+    void openPasswordManager();
+    void autofillPassword();
+    void openExtensions();
+    void openSync();
+    void toggleMediaBar();
+    void toggleReadingMode();
+
     // Tools
     void openTranslate();
     void openTranscript();
@@ -182,4 +203,12 @@ private:
 
     // Per-host zoom levels  (host → factor, e.g. 1.25)
     QMap<QString, double> m_zoomLevels;
+
+    // Features
+    PasswordManager  *m_passwords  = nullptr;
+    ExtensionSystem  *m_extensions = nullptr;
+    SyncManager      *m_sync       = nullptr;
+    MediaBar         *m_mediaBar   = nullptr;
+    ReadingMode      *m_reader     = nullptr;
+    PipWindow        *m_pip        = nullptr;
 };

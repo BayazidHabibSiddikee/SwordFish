@@ -36,6 +36,12 @@ set(SOURCES
     src/adblocker.cpp
     src/folder_picker.cpp
     src/file_picker.cpp
+    src/pip_window.cpp
+    src/password_manager.cpp
+    src/extension_system.cpp
+    src/sync_manager.cpp
+    src/media_bar.cpp
+    src/reading_mode.cpp
     # tools
     src/tools/pdf_tools.cpp
     src/tools/doc_tools.cpp
@@ -61,6 +67,12 @@ set(HEADERS
     src/web_page.h
     src/folder_picker.h
     src/file_picker.h
+    src/pip_window.h
+    src/password_manager.h
+    src/extension_system.h
+    src/sync_manager.h
+    src/media_bar.h
+    src/reading_mode.h
     src/tools/pdf_tools.h
     src/tools/doc_tools.h
     src/tools/office_tools.h
