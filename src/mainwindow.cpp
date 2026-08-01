@@ -1939,6 +1939,25 @@ void MainWindow::openTimer() {
     dlg.exec();
 }
 
+// Helper: run a tool function, catch std::exception and show a warning dialog.
+// Usage: runTool(parentWidget, [&]{ /* tool call */ });
+// Returns true on success.
+static bool runTool(QWidget *parent, std::function<void()> fn) {
+    try {
+        fn();
+        return true;
+    } catch (const std::exception &e) {
+        QMessageBox::warning(parent, "Tool Error",
+            QString("<b>Tool failed:</b><br>%1<br><br>"
+                    "Make sure the required program is installed.")
+                .arg(QString::fromStdString(e.what())));
+        return false;
+    } catch (...) {
+        QMessageBox::warning(parent, "Tool Error", "An unknown error occurred.");
+        return false;
+    }
+}
+
 void MainWindow::openPdfMerge() {
     QDialog dlg(this);
     dlg.setWindowTitle("PDF Merger");
@@ -1977,8 +1996,9 @@ void MainWindow::openPdfMerge() {
         QStringList paths;
         for (int i = 0; i < fileList->count(); i++)
             paths.append(fileList->item(i)->text());
-        QString result = PdfTools::mergeDocuments(paths, out);
-        QMessageBox::information(&dlg, "PDF Merge", QString("Merged to:\n%1").arg(result));
+        QString result;
+        if (runTool(&dlg, [&]{ result = PdfTools::mergeDocuments(paths, out); }))
+            QMessageBox::information(&dlg, "PDF Merge", QString("Merged to:\n%1").arg(result));
     });
 
     dlg.exec();
@@ -2000,7 +2020,8 @@ void MainWindow::openPdfSplit() {
         if (path.isEmpty()) return;
         QString outDir = FilePicker::getExistingDirectory(&dlg, "Output Directory");
         if (outDir.isEmpty()) return;
-        QStringList paths = DocTools::splitPdf(path, outDir);
+        QStringList paths;
+        if (!runTool(&dlg, [&]{ paths = DocTools::splitPdf(path, outDir); })) return;
         result->setText(QString("Created %1 files in:\n%2").arg(paths.size()).arg(outDir));
         QMessageBox::information(&dlg, "Split PDF", QString("Created %1 page files.").arg(paths.size()));
     });
@@ -2029,10 +2050,11 @@ void MainWindow::openWordToPdf() {
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true);
         result->setText("Converting\u2026 please wait.");
-        QString res = DocTools::wordToPdf(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = DocTools::wordToPdf(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
-        QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(res));
+        if (ok) { result->setText(QString("\u2714 Saved: %1").arg(res));
+            QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(res)); }
     });
 
     dlg.exec();
@@ -2059,10 +2081,11 @@ void MainWindow::openPdfToWord() {
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true);
         result->setText("Converting\u2026 please wait.");
-        QString res = DocTools::pdfToWord(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = DocTools::pdfToWord(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
-        QMessageBox::information(&dlg, "Success", QString("Word file saved to:\n%1").arg(res));
+        if (ok) { result->setText(QString("\u2714 Saved: %1").arg(res));
+            QMessageBox::information(&dlg, "Success", QString("Word file saved to:\n%1").arg(res)); }
     });
 
     dlg.exec();
@@ -2107,8 +2130,8 @@ void MainWindow::openImageToPdf() {
         QStringList paths;
         for (int i = 0; i < fileList->count(); i++)
             paths.append(fileList->item(i)->text());
-        DocTools::imageToPdf(paths, out);
-        QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ DocTools::imageToPdf(paths, out); }))
+            QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(out));
     });
 
     dlg.exec();
@@ -2135,8 +2158,8 @@ void MainWindow::openTextToPdf() {
         }
         QString out = FilePicker::getSaveFileName(&dlg, "Save PDF", "", "PDF (*.pdf)");
         if (out.isEmpty()) return;
-        DocTools::textToPdf(text, out);
-        QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ DocTools::textToPdf(text, out); }))
+            QMessageBox::information(&dlg, "Success", QString("PDF saved to:\n%1").arg(out));
     });
 
     dlg.exec();
@@ -2160,9 +2183,10 @@ void MainWindow::openXlsxToPdf() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save PDF", "", "PDF (*.pdf)");
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true); result->setText("Converting\u2026");
-        QString res = OfficeTools::xlsxToPdf(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = OfficeTools::xlsxToPdf(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
+        if (ok) result->setText(QString("\u2714 Saved: %1").arg(res));
     });
 
     dlg.exec();
@@ -2186,9 +2210,10 @@ void MainWindow::openPdfToXlsx() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save XLSX", "", "Excel (*.xlsx)");
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true); result->setText("Extracting\u2026");
-        QString res = OfficeTools::pdfToXlsx(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = OfficeTools::pdfToXlsx(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
+        if (ok) result->setText(QString("\u2714 Saved: %1").arg(res));
     });
 
     dlg.exec();
@@ -2209,8 +2234,8 @@ void MainWindow::openCsvToXlsx() {
         if (path.isEmpty()) return;
         QString out = FilePicker::getSaveFileName(&dlg, "Save XLSX", "", "Excel (*.xlsx)");
         if (out.isEmpty()) return;
-        OfficeTools::csvToXlsx(path, out);
-        QMessageBox::information(&dlg, "Success", QString("Excel saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ OfficeTools::csvToXlsx(path, out); }))
+            QMessageBox::information(&dlg, "Success", QString("Excel saved to:\n%1").arg(out));
     });
 
     dlg.exec();
@@ -2231,8 +2256,8 @@ void MainWindow::openXlsxToCsv() {
         if (path.isEmpty()) return;
         QString out = FilePicker::getSaveFileName(&dlg, "Save CSV", "", "CSV (*.csv)");
         if (out.isEmpty()) return;
-        OfficeTools::xlsxToCsv(path, out);
-        QMessageBox::information(&dlg, "Success", QString("CSV saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ OfficeTools::xlsxToCsv(path, out); }))
+            QMessageBox::information(&dlg, "Success", QString("CSV saved to:\n%1").arg(out));
     });
 
     dlg.exec();
@@ -2256,9 +2281,10 @@ void MainWindow::openPptxToPdf() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save PDF", "", "PDF (*.pdf)");
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true); result->setText("Converting\u2026");
-        QString res = OfficeTools::pptxToPdf(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = OfficeTools::pptxToPdf(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
+        if (ok) result->setText(QString("\u2714 Saved: %1").arg(res));
     });
 
     dlg.exec();
@@ -2282,9 +2308,10 @@ void MainWindow::openPdfToPptx() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save PPTX", "", "PowerPoint (*.pptx)");
         if (out.isEmpty()) return;
         btn->setEnabled(false); progress->setVisible(true); result->setText("Converting\u2026");
-        QString res = OfficeTools::pdfToPptx(path, out);
+        QString res;
+        bool ok = runTool(&dlg, [&]{ res = OfficeTools::pdfToPptx(path, out); });
         progress->setVisible(false); btn->setEnabled(true);
-        result->setText(QString("\u2714 Saved: %1").arg(res));
+        if (ok) result->setText(QString("\u2714 Saved: %1").arg(res));
     });
 
     dlg.exec();
@@ -2305,9 +2332,10 @@ void MainWindow::openPdfToImage() {
         if (path.isEmpty()) return;
         QString outDir = FilePicker::getExistingDirectory(&dlg, "Select output folder");
         if (outDir.isEmpty()) return;
-        QStringList files = OfficeTools::pdfToImage(path, outDir);
-        QMessageBox::information(&dlg, "Success",
-            QString("%1 image(s) saved to:\n%2").arg(files.size()).arg(outDir));
+        QStringList files;
+        if (runTool(&dlg, [&]{ files = OfficeTools::pdfToImage(path, outDir); }))
+            QMessageBox::information(&dlg, "Success",
+                QString("%1 image(s) saved to:\n%2").arg(files.size()).arg(outDir));
     });
 
     dlg.exec();
@@ -2328,8 +2356,8 @@ void MainWindow::openPdfToText() {
         if (path.isEmpty()) return;
         QString out = FilePicker::getSaveFileName(&dlg, "Save TXT", "", "Text (*.txt)");
         if (out.isEmpty()) return;
-        OfficeTools::pdfToText(path, out);
-        QMessageBox::information(&dlg, "Success", QString("Text saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ OfficeTools::pdfToText(path, out); }))
+            QMessageBox::information(&dlg, "Success", QString("Text saved to:\n%1").arg(out));
     });
 
     dlg.exec();
@@ -2397,10 +2425,12 @@ void MainWindow::openArchiveTools() {
         QStringList paths;
         for (int i = 0; i < fileList->count(); i++)
             paths.append(fileList->item(i)->text());
-        if (fmt.contains("Zip")) ArchiveTools::zipFiles(paths, out);
-        else if (fmt.contains("7z")) ArchiveTools::sevenZipFiles(paths, out);
-        else ArchiveTools::tarFiles(paths, out);
-        QMessageBox::information(&dlg, "Success", QString("Archive created:\n%1").arg(out));
+        bool ok = runTool(&dlg, [&]{
+            if (fmt.contains("Zip")) ArchiveTools::zipFiles(paths, out);
+            else if (fmt.contains("7z")) ArchiveTools::sevenZipFiles(paths, out);
+            else ArchiveTools::tarFiles(paths, out);
+        });
+        if (ok) QMessageBox::information(&dlg, "Success", QString("Archive created:\n%1").arg(out));
     });
     connect(unBtn, &QPushButton::clicked, this, [&dlg, unRes]() {
         QString path = FilePicker::getOpenFileName(&dlg, "Select Archive", "",
@@ -2408,10 +2438,12 @@ void MainWindow::openArchiveTools() {
         if (path.isEmpty()) return;
         QString outDir = FilePicker::getExistingDirectory(&dlg, "Select Extraction Folder");
         if (outDir.isEmpty()) return;
-        if (path.endsWith(".zip")) ArchiveTools::unzipFile(path, outDir);
-        else if (path.endsWith(".7z")) ArchiveTools::unSevenZipFile(path, outDir);
-        else ArchiveTools::untarFile(path, outDir);
-        QMessageBox::information(&dlg, "Success", QString("Extracted to:\n%1").arg(outDir));
+        bool ok = runTool(&dlg, [&]{
+            if (path.endsWith(".zip")) ArchiveTools::unzipFile(path, outDir);
+            else if (path.endsWith(".7z")) ArchiveTools::unSevenZipFile(path, outDir);
+            else ArchiveTools::untarFile(path, outDir);
+        });
+        if (ok) QMessageBox::information(&dlg, "Success", QString("Extracted to:\n%1").arg(outDir));
     });
 
     dlg.exec();
@@ -2450,8 +2482,8 @@ void MainWindow::openQr() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save QR Code", "qrcode.png",
             "PNG (*.png);;JPEG (*.jpg);;All (*)");
         if (out.isEmpty()) return;
-        StudentTools::generateQr(text, out, sizeSpin->value());
-        QMessageBox::information(&dlg, "Success", QString("QR saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ StudentTools::generateQr(text, out, sizeSpin->value()); }))
+            QMessageBox::information(&dlg, "Success", QString("QR saved to:\n%1").arg(out));
     });
     connect(textInput, &QLineEdit::returnPressed, genBtn, &QPushButton::click);
 
@@ -2638,9 +2670,10 @@ void MainWindow::openNoteTaker() {
         QString out = FilePicker::getSaveFileName(&dlg, "Save Note", "note.txt",
             "Text (*.txt);;All (*)");
         if (out.isEmpty()) return;
-        StudentTools::saveNote(text, out);
-        status->setText("Saved to " + out);
-        QMessageBox::information(&dlg, "Note Saved", QString("Saved to:\n%1").arg(out));
+        if (runTool(&dlg, [&]{ StudentTools::saveNote(text, out); })) {
+            status->setText("Saved to " + out);
+            QMessageBox::information(&dlg, "Note Saved", QString("Saved to:\n%1").arg(out));
+        }
     });
     connect(clearBtn, &QPushButton::clicked, this, [textEdit, status]() {
         textEdit->clear();
