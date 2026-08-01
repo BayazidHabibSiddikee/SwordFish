@@ -1,0 +1,37 @@
+// swordfish.rc — Windows resource file for SwordFish Browser
+// Embeds application icon and version info into the .exe
+
+#include <windows.h>
+
+// ── Application Icon ─────────────────────────────────────────────────────────
+IDI_ICON1 ICON "swordfish.ico"
+
+// ── Version Information ───────────────────────────────────────────────────────
+VS_VERSION_INFO VERSIONINFO
+    FILEVERSION     2,0,0,0
+    PRODUCTVERSION  2,0,0,0
+    FILEFLAGSMASK   VS_FFI_FILEFLAGSMASK
+    FILEFLAGS       0
+    FILEOS          VOS_NT_WINDOWS32
+    FILETYPE        VFT_APP
+    FILESUBTYPE     VFT2_UNKNOWN
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904E4"
+        BEGIN
+            VALUE "CompanyName",      "SwordFish Project"
+            VALUE "FileDescription",  "SwordFish Web Browser"
+            VALUE "FileVersion",      "2.0.0.0"
+            VALUE "InternalName",     "SwordFish"
+            VALUE "LegalCopyright",   "Copyright © 2026 BayazidHabibSiddikee"
+            VALUE "OriginalFilename", "SwordFish.exe"
+            VALUE "ProductName",      "SwordFish Browser"
+            VALUE "ProductVersion",   "2.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0409, 0x04E4
+    END
+END

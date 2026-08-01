@@ -1,0 +1,65 @@
+.TH SWORDFISH 1 "2026" "SwordFish 2.0.0" "SwordFish Browser"
+
+.SH NAME
+swordfish \- Privacy-first power-user web browser
+
+.SH SYNOPSIS
+.B SwordFish
+[\fIOPTIONS\fR] [\fIURL\fR]
+
+.SH DESCRIPTION
+\fBSwordFish\fR is a fast, privacy-focused web browser built with Qt6 WebEngine.
+It features a built-in ad blocker, DNS-over-HTTPS via AdGuard, dark mode with
+cyan UI theming, a custom file picker, PDF/Office/Archive tools, YouTube
+transcript fetcher, find-in-page, zoom, tab management, and more.
+
+.SH OPTIONS
+.TP
+.B \-\-version, \-v
+Print version and exit.
+.TP
+.B \-\-private
+Open a private (incognito) window.
+.TP
+.B URL
+Open the given URL in a new tab on startup.
+
+.SH KEYBOARD SHORTCUTS
+.TP
+.B F11
+Toggle fullscreen
+.TP
+.B Ctrl+T
+New tab
+.TP
+.B Ctrl+W
+Close tab
+.TP
+.B Ctrl+L
+Focus URL bar
+.TP
+.B Ctrl+F
+Find in page
+.TP
+.B Ctrl+D
+Bookmark current page
+.TP
+.B Ctrl+Shift+T
+Reopen last closed tab
+.TP
+.B Ctrl++/\-/0
+Zoom in / out / reset
+.TP
+.B Alt+Left/Right
+Back / Forward
+
+.SH FILES
+.TP
+.I ~/.config/SwordFish/
+User configuration and data directory.
+.TP
+.I ~/.config/SwordFish/browser_profile/
+WebEngine browser profile storage.
+
+.SH AUTHOR
+BayazidHabibSiddikee <https://github.com/BayazidHabibSiddikee/SwordFish>

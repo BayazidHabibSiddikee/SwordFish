@@ -1,0 +1,24 @@
+[Desktop Entry]
+Version=2.0
+Type=Application
+Name=SwordFish
+GenericName=Web Browser
+Comment=Privacy-first power-user web browser
+Exec=SwordFish %U
+TryExec=SwordFish
+Icon=swordfish
+Terminal=false
+StartupNotify=true
+StartupWMClass=SwordFish
+Categories=Network;WebBrowser;Qt;
+Keywords=browser;web;internet;privacy;
+MimeType=text/html;text/xml;application/xhtml+xml;application/xml;x-scheme-handler/http;x-scheme-handler/https;x-scheme-handler/ftp;
+Actions=NewWindow;NewPrivateWindow;
+
+[Desktop Action NewWindow]
+Name=New Window
+Exec=SwordFish
+
+[Desktop Action NewPrivateWindow]
+Name=New Private Window
+Exec=SwordFish --private
