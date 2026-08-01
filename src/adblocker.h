@@ -5,15 +5,22 @@
 #include <unordered_map>
 #include <regex>
 #include <QUrl>
+#include <QWebEngineUrlRequestInterceptor>
+#include <QWebEngineUrlRequestInfo>
 
-class AdBlocker {
+class AdBlocker : public QWebEngineUrlRequestInterceptor {
+    Q_OBJECT
 public:
     enum class Level { None, Low, Medium, Ultimate };
 
-    explicit AdBlocker(Level level = Level::Medium);
+    explicit AdBlocker(QObject *parent = nullptr, Level level = Level::Medium);
 
     void setLevel(Level level);
     Level level() const { return m_level; }
+
+    // QWebEngineUrlRequestInterceptor — actually blocks network requests
+    void interceptRequest(QWebEngineUrlRequestInfo &info) override;
+
     bool shouldBlock(const QString &url, const QString &sourceUrl = QString()) const;
     bool checkContentViolent(const QString &text, const QString &title = QString()) const;
     bool checkContentAdult(const QString &text, const QString &title = QString()) const;

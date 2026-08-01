@@ -4,6 +4,7 @@
 #include <QDir>
 #include <QFile>
 #include <QTextStream>
+#include <QRegularExpression>
 #include <QWebEngineProfile>
 #include <QWebEngineScript>
 #include <QWebEngineScriptCollection>
@@ -83,9 +84,27 @@ void ExtensionSystem::loadAll() {
 }
 
 void ExtensionSystem::injectScript(const UserScript &s) {
+    // Wrap source in a URL match guard so @match is actually enforced.
+    // Pattern '*' means run on all pages (no guard needed).
+    QString guardedSource;
+    if (s.match.trimmed() == "*" || s.match.trimmed().isEmpty()) {
+        guardedSource = s.source;
+    } else {
+        // Convert glob-style @match to a JS regex:
+        // e.g. "https://example.com/*" → escaped, * → .*
+        QString pat = QRegularExpression::escape(s.match);
+        pat.replace("\\*", ".*");
+        guardedSource = QString(
+            "(function() {\n"
+            "  if (!/%1/.test(location.href)) return;\n"
+            "%2\n"
+            "})();\n"
+        ).arg(pat, s.source);
+    }
+
     QWebEngineScript ws;
     ws.setName("ext_" + s.name);
-    ws.setSourceCode(s.source);
+    ws.setSourceCode(guardedSource);
     ws.setInjectionPoint(QWebEngineScript::DocumentReady);
     ws.setWorldId(QWebEngineScript::MainWorld);
     ws.setRunsOnSubFrames(false);

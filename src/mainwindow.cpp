@@ -189,8 +189,8 @@ MainWindow::MainWindow(bool isPrivate, QWidget *parent)
 
     m_channel = new QWebChannel(this);
 
-    auto *interceptor = new AdBlocker();
-    Q_UNUSED(interceptor);
+    // Wire network-level ad blocking to the profile
+    m_profile->setUrlRequestInterceptor(&getBlocker());
 
     if (!isPrivate) {
         loadData();
@@ -404,6 +404,9 @@ void MainWindow::buildUi() {
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         auto *br = currentBrowser();
         if (br) m_urlBar->setText(br->url().toString());
+        // Re-attach media bar to the newly active tab if it's visible
+        if (m_mediaBar && m_mediaBar->isVisible() && br)
+            m_mediaBar->attachTo(br);
     });
 
     auto *tabBtn = new QPushButton("+");
@@ -502,6 +505,11 @@ TabWidget *MainWindow::newTab(const QString &url) {
         updateTabTitle(tw, br, t);
     });
     connect(br, &QWebEngineView::urlChanged, this, &MainWindow::recordHistory);
+    // Inject password capture on every navigation in this tab
+    connect(br, &QWebEngineView::loadFinished, this, [this, br](bool) {
+        if (br && br->page() && m_passwords)
+            m_passwords->injectCapture(br->page());
+    });
     return tw;
 }
 
@@ -761,7 +769,12 @@ void MainWindow::showSettingsMenu() {
 
     auto *blockMenu = menu.addMenu("\U0001f6e1  Adblock Level");
     QStringList levels = {"none", "low", "medium", "ultimate"};
-    QString currentLevel = "low";
+    // Read actual current level from the singleton
+    auto lvl = getBlocker().level();
+    QString currentLevel =
+        lvl == AdBlocker::Level::None     ? "none"     :
+        lvl == AdBlocker::Level::Low      ? "low"      :
+        lvl == AdBlocker::Level::Medium   ? "medium"   : "ultimate";
     for (const auto &level : levels) {
         auto *a = new QAction(level == "none" ? "Disabled (Off)" : level.toUpper(), this);
         a->setCheckable(true);
@@ -3057,9 +3070,15 @@ void MainWindow::showPageInfo() {
 void MainWindow::openPip() {
     auto *br = currentBrowser();
     if (!br) return;
-    if (m_pip) { m_pip->close(); m_pip = nullptr; return; }
-    m_pip = new PipWindow(br, this);
+    if (m_pip) {
+        m_pip->close();
+        m_pip->deleteLater();
+        m_pip = nullptr;
+        return;
+    }
+    m_pip = new PipWindow(br, nullptr);  // no parent — independent window
     connect(m_pip, &QObject::destroyed, this, [this]() { m_pip = nullptr; });
+    m_pip->setAttribute(Qt::WA_DeleteOnClose);
     m_pip->show();
 }
 
@@ -3122,5 +3141,18 @@ void MainWindow::toggleMediaBar() {
 void MainWindow::toggleReadingMode() {
     auto *br = currentBrowser();
     if (!br || !m_reader) return;
+
+    if (!m_reader->isActive()) {
+        // Activate — connect titleChanged to detect the in-page exit button
+        m_readerTitleConn = connect(br, &QWebEngineView::titleChanged,
+            this, [this, br](const QString &title) {
+                if (title == "__sf_exit_reader__" && m_reader && m_reader->isActive()) {
+                    m_reader->toggle(br->page());
+                    QObject::disconnect(m_readerTitleConn);
+                }
+            });
+    } else {
+        QObject::disconnect(m_readerTitleConn);
+    }
     m_reader->toggle(br->page());
 }

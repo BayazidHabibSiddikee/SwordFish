@@ -52,24 +52,27 @@ std::regex AdBlocker::s_violentKeywords(
     std::regex::icase
 );
 
-static std::string toLowerStr(const std::string &s) {
-    std::string result = s;
-    std::transform(result.begin(), result.end(), result.begin(),
-                   [](unsigned char c) { return std::tolower(c); });
-    return result;
-}
-
-AdBlocker::AdBlocker(Level level) : m_level(level) {}
+AdBlocker::AdBlocker(QObject *parent, Level level)
+    : QWebEngineUrlRequestInterceptor(parent), m_level(level) {}
 
 void AdBlocker::setLevel(Level level) {
     m_level = level;
     m_cache.clear();
 }
 
+// ── Network-level request blocking ───────────────────────────────────────
+void AdBlocker::interceptRequest(QWebEngineUrlRequestInfo &info) {
+    if (m_level == Level::None) return;
+    QString url = info.requestUrl().toString();
+    QString source = info.firstPartyUrl().toString();
+    if (shouldBlock(url, source))
+        info.block(true);
+}
+
+// ── Domain / path matching ────────────────────────────────────────────────
 bool AdBlocker::domainMatches(const QString &url) const {
     QUrl qurl(url);
     std::string domain = qurl.host().toLower().toStdString();
-
     while (!domain.empty()) {
         if (s_adDomains.count(domain)) return true;
         auto dot = domain.find('.');
@@ -91,9 +94,9 @@ bool AdBlocker::shouldBlock(const QString &url, const QString &sourceUrl) const 
     auto it = m_cache.find(key);
     if (it != m_cache.end()) return it->second;
 
+    // Never block JS files outright (would break too many sites)
     QUrl qurl(url);
-    QString path = qurl.path().toLower();
-    if (path.endsWith(".js")) {
+    if (qurl.path().toLower().endsWith(".js")) {
         m_cache[key] = false;
         return false;
     }
@@ -114,12 +117,10 @@ bool AdBlocker::shouldBlock(const QString &url, const QString &sourceUrl) const 
 
     if (m_level == Level::Ultimate) {
         std::string lower = url.toLower().toStdString();
-        std::vector<std::string> keywords = {
-            "/ad.", "/ad-", "/ad_", "adserver", "adservice",
-            "advert", "banner", "tracking", "pixel", "beacon",
-            "popup", "popunder"
-        };
-        for (const auto &kw : keywords) {
+        for (const auto &kw : std::vector<std::string>{
+                "/ad.", "/ad-", "/ad_", "adserver", "adservice",
+                "advert", "banner", "tracking", "pixel", "beacon",
+                "popup", "popunder"}) {
             if (lower.find(kw) != std::string::npos) {
                 m_cache[key] = true;
                 return true;
@@ -133,16 +134,18 @@ bool AdBlocker::shouldBlock(const QString &url, const QString &sourceUrl) const 
 }
 
 bool AdBlocker::checkContentViolent(const QString &text, const QString &title) const {
-    std::string t = title.toStdString();
-    std::string txt = text.toStdString();
+    std::string t = title.toStdString(), txt = text.toStdString();
     return std::regex_search(t, s_violentKeywords) || std::regex_search(txt, s_violentKeywords);
 }
 
 bool AdBlocker::checkContentAdult(const QString &text, const QString &title) const {
-    std::string t = title.toStdString();
-    std::string txt = text.toStdString();
+    std::string t = title.toStdString(), txt = text.toStdString();
     return std::regex_search(t, s_adultKeywords) || std::regex_search(txt, s_adultKeywords);
 }
 
-static AdBlocker s_blocker;
-AdBlocker &getBlocker() { return s_blocker; }
+// Global singleton — level persists across calls from Settings menu
+static AdBlocker *s_blocker = nullptr;
+AdBlocker &getBlocker() {
+    if (!s_blocker) s_blocker = new AdBlocker(nullptr, AdBlocker::Level::Medium);
+    return *s_blocker;
+}

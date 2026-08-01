@@ -29,12 +29,6 @@
 #include "sync_manager.h"
 #include "media_bar.h"
 #include "reading_mode.h"
-#include "pip_window.h"
-#include "password_manager.h"
-#include "extension_system.h"
-#include "sync_manager.h"
-#include "media_bar.h"
-#include "reading_mode.h"
 
 class CustomWebPage;
 
@@ -211,4 +205,5 @@ private:
     MediaBar         *m_mediaBar   = nullptr;
     ReadingMode      *m_reader     = nullptr;
     PipWindow        *m_pip        = nullptr;
+    QMetaObject::Connection m_readerTitleConn;
 };
