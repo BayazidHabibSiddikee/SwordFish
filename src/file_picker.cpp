@@ -209,16 +209,16 @@ void FilePicker::buildUi() {
     for (auto *b : {m_upBtn, m_homeBtn, m_hiddenBtn}) {
         b->setFixedHeight(28);
         b->setStyleSheet(
-            "QPushButton { background:#2a2a2a; color:#ccc; border:1px solid #444;"
+            "QPushButton { background:#3e4451; color:#abb2bf; border:none;"
             "  border-radius:4px; padding:0 10px; font-size:12px; }"
-            "QPushButton:hover { background:#3a3a3a; }"
-            "QPushButton:checked { background:#1565C0; color:#fff; }");
+            "QPushButton:hover { background:#4b5263; }"
+            "QPushButton:checked { background:#61afef; color:#282c34; }");
     }
 
     m_pathLabel = new QLabel(m_currentDir);
     m_pathLabel->setStyleSheet(
-        "color:#aaa; font-size:12px; padding:2px 6px;"
-        "background:#1e1e1e; border-radius:4px;");
+        "color:#5c6370; font-size:12px; padding:2px 6px;"
+        "background:#21252b; border-radius:4px;");
     m_pathLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 
@@ -236,10 +236,10 @@ void FilePicker::buildUi() {
     m_places = new QListWidget;
     m_places->setFixedWidth(160);
     m_places->setStyleSheet(
-        "QListWidget { background:#1a1a2e; border:none; color:#ccc; font-size:13px; }"
+        "QListWidget { background:#21252b; border:none; color:#abb2bf; font-size:13px; }"
         "QListWidget::item { padding:6px 8px; border-radius:4px; }"
-        "QListWidget::item:selected { background:#1565C0; color:#fff; }"
-        "QListWidget::item:hover:!selected { background:#2a2a4a; }");
+        "QListWidget::item:selected { background:#3e4451; color:#abb2bf; }"
+        "QListWidget::item:hover:!selected { background:#2c313c; }");
 
     // File tree
     m_tree = new QTreeWidget;
@@ -251,13 +251,13 @@ void FilePicker::buildUi() {
     m_tree->setAnimated(true);
     m_tree->setAlternatingRowColors(true);
     m_tree->setStyleSheet(
-        "QTreeWidget { background:#121212; color:#e0e0e0; border:none;"
-        "  alternate-background-color:#181818; font-size:13px; }"
+        "QTreeWidget { background:#282c34; color:#abb2bf; border:none;"
+        "  alternate-background-color:#2c313c; font-size:13px; }"
         "QTreeWidget::item { padding:3px 4px; }"
-        "QTreeWidget::item:selected { background:#1565C0; color:#fff; }"
-        "QTreeWidget::item:hover:!selected { background:#1e1e3a; }"
-        "QHeaderView::section { background:#1e1e1e; color:#aaa; border:none;"
-        "  border-bottom:1px solid #333; padding:4px; font-size:12px; }");
+        "QTreeWidget::item:selected { background:#3e4451; color:#abb2bf; }"
+        "QTreeWidget::item:hover:!selected { background:#2c313c; }"
+        "QHeaderView::section { background:#21252b; color:#5c6370; border:none;"
+        "  border-bottom:1px solid #3e4451; padding:4px; font-size:12px; }");
     if (m_mode == Mode::OpenFiles)
         m_tree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     else
@@ -279,9 +279,9 @@ void FilePicker::buildUi() {
     m_nameEdit->setReadOnly(m_mode != Mode::SaveFile);
     m_nameEdit->setPlaceholderText(m_mode == Mode::SaveFile ? "filename" : "");
     m_nameEdit->setStyleSheet(
-        "QLineEdit { background:#1e1e1e; color:#e0e0e0; border:1px solid #444;"
+        "QLineEdit { background:#21252b; color:#abb2bf; border:1px solid #3e4451;"
         "  border-radius:4px; padding:4px 8px; font-size:13px; }"
-        "QLineEdit:focus { border-color:#1565C0; }");
+        "QLineEdit:focus { border-color:#61afef; }");
     nameRow->addWidget(m_nameEdit);
     bottomBar->addLayout(nameRow);
 
@@ -291,11 +291,11 @@ void FilePicker::buildUi() {
     m_filterCombo = new QComboBox;
     m_filterCombo->setMinimumWidth(200);
     m_filterCombo->setStyleSheet(
-        "QComboBox { background:#1e1e1e; color:#e0e0e0; border:1px solid #444;"
+        "QComboBox { background:#21252b; color:#abb2bf; border:1px solid #3e4451;"
         "  border-radius:4px; padding:3px 8px; font-size:13px; }"
         "QComboBox::drop-down { border:none; }"
-        "QComboBox QAbstractItemView { background:#1e1e1e; color:#e0e0e0; "
-        "  selection-background-color:#1565C0; }");
+        "QComboBox QAbstractItemView { background:#21252b; color:#abb2bf; "
+        "  selection-background-color:#3e4451; }");
     for (const auto &g : m_filterGroups)
         m_filterCombo->addItem(g.label);
 
@@ -312,14 +312,14 @@ void FilePicker::buildUi() {
         b->setMinimumWidth(80);
     }
     m_okBtn->setStyleSheet(
-        "QPushButton { background:#1565C0; color:#fff; border:none;"
+        "QPushButton { background:#61afef; color:#282c34; border:none;"
         "  border-radius:4px; font-size:13px; font-weight:bold; padding:0 16px; }"
-        "QPushButton:hover { background:#1976D2; }"
-        "QPushButton:disabled { background:#333; color:#666; }");
+        "QPushButton:hover { background:#528bff; }"
+        "QPushButton:disabled { background:#21252b; color:#5c6370; }");
     cancelBtn->setStyleSheet(
-        "QPushButton { background:#2a2a2a; color:#ccc; border:1px solid #444;"
+        "QPushButton { background:#3e4451; color:#abb2bf; border:none;"
         "  border-radius:4px; font-size:13px; padding:0 16px; }"
-        "QPushButton:hover { background:#3a3a3a; }");
+        "QPushButton:hover { background:#4b5263; }");
 
     filterRow->addWidget(cancelBtn);
     filterRow->addWidget(m_okBtn);
@@ -328,7 +328,7 @@ void FilePicker::buildUi() {
     root->addLayout(bottomBar);
 
     // Style labels
-    setStyleSheet("QDialog { background:#121212; } QLabel { color:#ccc; font-size:13px; }");
+    setStyleSheet("QDialog { background:#282c34; } QLabel { color:#abb2bf; font-size:13px; }");
 
     // ── Connections ───────────────────────────────────────────────────────
     connect(m_places, &QListWidget::itemClicked,          this, &FilePicker::onPlaceClicked);
@@ -361,7 +361,7 @@ void FilePicker::populatePlaces() {
 
     m_places->addItem(new QListWidgetItem("── Bookmarks ──"));
     m_places->item(m_places->count()-1)->setFlags(Qt::NoItemFlags);
-    m_places->item(m_places->count()-1)->setForeground(QColor("#666"));
+    m_places->item(m_places->count()-1)->setForeground(QColor("#5c6370"));
 
     addPlace("⌂", "Home",      QDir::homePath());
     addPlace("🖥", "Desktop",   QStandardPaths::writableLocation(QStandardPaths::DesktopLocation));
@@ -380,7 +380,7 @@ void FilePicker::populatePlaces() {
         if (!drivesHeaderAdded) {
             auto *sep = new QListWidgetItem("── Drives ──");
             sep->setFlags(Qt::NoItemFlags);
-            sep->setForeground(QColor("#666"));
+            sep->setForeground(QColor("#5c6370"));
             m_places->addItem(sep);
             drivesHeaderAdded = true;
         }

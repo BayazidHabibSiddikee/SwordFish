@@ -44,6 +44,11 @@ FolderPickerDialog::FolderPickerDialog(const QString &startPath, QWidget *parent
     m_tree->setAnimated(true);
     m_tree->setExpandsOnDoubleClick(true);
     m_tree->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tree->setStyleSheet(
+        "QTreeWidget { background:#282c34; color:#abb2bf; border:none; font-size:13px; }"
+        "QTreeWidget::item { padding:3px 4px; }"
+        "QTreeWidget::item:selected { background:#3e4451; color:#abb2bf; }"
+        "QTreeWidget::item:hover:!selected { background:#2c313c; }");
     root->addWidget(m_tree);
 
     // ── Buttons row ──
@@ -58,7 +63,18 @@ FolderPickerDialog::FolderPickerDialog(const QString &startPath, QWidget *parent
     m_okBtn->setEnabled(false);
 
     m_okBtn->setDefault(true);
-    m_okBtn->setStyleSheet("font-weight:bold;");
+    m_okBtn->setStyleSheet(
+        "QPushButton { font-weight:bold; background:#61afef; color:#282c34;"
+        "  border:none; border-radius:4px; padding:0 12px; }"
+        "QPushButton:hover { background:#528bff; }"
+        "QPushButton:disabled { background:#21252b; color:#5c6370; }");
+
+    for (auto *b : {m_addBtn, m_removeBtn, cancel}) {
+        b->setStyleSheet(
+            "QPushButton { background:#3e4451; color:#abb2bf; border:none;"
+            "  border-radius:4px; padding:0 10px; }"
+            "QPushButton:hover { background:#4b5263; }");
+    }
 
     btnRow->addWidget(m_addBtn);
     btnRow->addWidget(m_removeBtn);
@@ -86,6 +102,9 @@ FolderPickerDialog::FolderPickerDialog(const QString &startPath, QWidget *parent
             onItemClicked(item, 0);
         }
     }
+
+    // Dialog + label styling
+    setStyleSheet("QDialog { background:#282c34; } QLabel { color:#abb2bf; font-size:13px; }");
 }
 
 // ── Private helpers ───────────────────────────────────────────────────────
