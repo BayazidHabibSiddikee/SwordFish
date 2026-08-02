@@ -602,14 +602,20 @@ void MainWindow::restoreWindow() {
 
 void MainWindow::restoreTabs() {
     QJsonArray tabs = m_data["tabs"].toArray();
-    if (!tabs.isEmpty()) {
-        for (const auto &v : tabs) {
-            newTab(v.toString());
-        }
+    int opened = 0;
+    for (const auto &v : tabs) {
+        QString url = v.toString();
+        // Skip stale file:// URLs — they point to old installation paths that
+        // may no longer exist (e.g. old Python version's tools.html).
+        if (url.startsWith("file://")) continue;
+        newTab(url);
+        ++opened;
+    }
+    if (opened == 0) {
+        newTab(m_home);
+    } else {
         int active = m_data["active_tab"].toInt(0);
         if (active < m_tabs->count()) m_tabs->setCurrentIndex(active);
-    } else {
-        newTab(m_home);
     }
 }
 
