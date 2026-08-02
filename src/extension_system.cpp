@@ -18,6 +18,9 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QTextEdit>
+#include <QNetworkRequest>
+#include <QInputDialog>
+#include <functional>
 
 ExtensionSystem::ExtensionSystem(const QString &extensionsDir,
                                  QWebEngineProfile *profile,
@@ -147,6 +150,99 @@ void ExtensionSystem::setEnabled(const QString &name, bool enabled) {
     }
 }
 
+// ── Install from URL ──────────────────────────────────────────────────────
+void ExtensionSystem::installFromUrl(const QString &rawUrl,
+                                     std::function<void(bool, const QString &)> onDone)
+{
+    // Greasy Fork convenience: if user pastes the script page URL instead of
+    // the raw .user.js URL, convert it automatically.
+    //   https://greasyfork.org/en/scripts/12345-name  →
+    //   https://greasyfork.org/scripts/12345/code/name.user.js
+    QString url = rawUrl.trimmed();
+    static const QRegularExpression s_gfPage(
+        R"(https?://greasyfork\.org/[a-z-]+/scripts/(\d+)(?:-[^/?#]*)?)");
+    QRegularExpressionMatch m = s_gfPage.match(url);
+    if (m.hasMatch() && !url.endsWith(".user.js")) {
+        // Use the direct install URL format Greasy Fork provides
+        url = QString("https://greasyfork.org/scripts/%1/code/script.user.js")
+                  .arg(m.captured(1));
+    }
+
+    QNetworkRequest req{QUrl(url)};
+    req.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+                     QNetworkRequest::NoLessSafeRedirectPolicy);
+    req.setRawHeader("User-Agent",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36");
+
+    QNetworkReply *reply = m_nam.get(req);
+
+    connect(reply, &QNetworkReply::finished, this, [this, reply, onDone]() mutable {
+        reply->deleteLater();
+
+        if (reply->error() != QNetworkReply::NoError) {
+            onDone(false, "Network error: " + reply->errorString());
+            return;
+        }
+
+        QByteArray data = reply->readAll();
+        if (data.isEmpty()) {
+            onDone(false, "Downloaded file is empty.");
+            return;
+        }
+
+        QString source = QString::fromUtf8(data);
+
+        // Must look like a userscript — require ==UserScript== header
+        if (!source.contains("==UserScript==")) {
+            onDone(false, "The URL does not point to a valid UserScript "
+                          "(missing ==UserScript== header).");
+            return;
+        }
+
+        // Derive a safe filename from @name metadata or the URL
+        QString scriptName;
+        for (const QString &line : source.split('\n')) {
+            QString t = line.trimmed();
+            if (t.startsWith("// @name")) {
+                scriptName = t.mid(8).trimmed();
+                break;
+            }
+        }
+        if (scriptName.isEmpty()) {
+            // Fall back to last path segment of URL
+            scriptName = QUrl(reply->url()).fileName();
+        }
+        // Sanitise: keep only alphanumeric, dash, underscore, space
+        scriptName.replace(QRegularExpression(R"([^\w\s-])"), "_");
+        scriptName = scriptName.trimmed();
+        if (!scriptName.endsWith(".user.js") && !scriptName.endsWith(".js"))
+            scriptName += ".user.js";
+
+        QString savePath = m_dir + "/" + scriptName;
+
+        // Don't overwrite silently — append a counter if file exists
+        if (QFile::exists(savePath)) {
+            int n = 1;
+            QString base = savePath;
+            base.replace(".user.js", "").replace(".js", "");
+            while (QFile::exists(savePath))
+                savePath = QString("%1_%2.user.js").arg(base).arg(n++);
+        }
+
+        QFile f(savePath);
+        if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            onDone(false, "Could not write file: " + savePath);
+            return;
+        }
+        QTextStream(&f) << source;
+        f.close();
+
+        onDone(true, scriptName);
+    });
+}
+
 // ── Manager dialog ────────────────────────────────────────────────────────
 void ExtensionSystem::showManagerDialog(QWidget *parent) {
     QDialog dlg(parent);
@@ -175,10 +271,16 @@ void ExtensionSystem::showManagerDialog(QWidget *parent) {
     auto *btnRow = new QHBoxLayout;
     auto *toggleBtn  = new QPushButton("Toggle On/Off");
     auto *reloadBtn  = new QPushButton("⟳ Reload All");
+    auto *installBtn = new QPushButton("🌐 Install from URL");
     auto *openDirBtn = new QPushButton("📂 Open Folder");
     auto *closeBtn   = new QPushButton("Close");
-    for (auto *b : {toggleBtn, reloadBtn, openDirBtn, closeBtn}) btnRow->addWidget(b);
+    for (auto *b : {toggleBtn, reloadBtn, installBtn, openDirBtn, closeBtn})
+        btnRow->addWidget(b);
     layout->addLayout(btnRow);
+
+    auto *statusLabel = new QLabel("", &dlg);
+    statusLabel->setWordWrap(true);
+    layout->addWidget(statusLabel);
 
     connect(toggleBtn, &QPushButton::clicked, &dlg, [&]() {
         auto *item = list->currentItem();
@@ -193,6 +295,37 @@ void ExtensionSystem::showManagerDialog(QWidget *parent) {
     connect(openDirBtn, &QPushButton::clicked, &dlg, [&]() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(m_dir));
     });
+
+    connect(installBtn, &QPushButton::clicked, &dlg, [&]() {
+        bool ok;
+        QString url = QInputDialog::getText(
+            &dlg,
+            "Install UserScript from URL",
+            "Paste a .user.js URL or a Greasy Fork script page URL:",
+            QLineEdit::Normal,
+            QString(),
+            &ok
+        );
+        if (!ok || url.trimmed().isEmpty()) return;
+
+        installBtn->setEnabled(false);
+        statusLabel->setText("⏳ Downloading…");
+        statusLabel->setStyleSheet("color: #555;");
+
+        installFromUrl(url, [&, installBtn, statusLabel](bool success, const QString &msg) {
+            installBtn->setEnabled(true);
+            if (success) {
+                statusLabel->setText("✅ Installed: " + msg);
+                statusLabel->setStyleSheet("color: green; font-weight: bold;");
+                loadAll();
+                refresh();
+            } else {
+                statusLabel->setText("❌ Failed: " + msg);
+                statusLabel->setStyleSheet("color: red;");
+            }
+        });
+    });
+
     connect(closeBtn, &QPushButton::clicked, &dlg, &QDialog::accept);
     dlg.exec();
 }

@@ -5,6 +5,8 @@
 #include <QStandardPaths>
 #include <QMessageBox>
 #include <QSurfaceFormat>
+#include <QSettings>
+#include <QWebEngineGlobalSettings>
 
 #include "mainwindow.h"
 
@@ -16,7 +18,42 @@
 #define APP_NAME "SwordFish"
 #endif
 
+// ── DNS-over-HTTPS setup — MUST run before QApplication is created ────────
+// QWebEngineGlobalSettings::setDnsMode() has no effect after the Chromium
+// network stack is initialized (which happens during QApplication construction).
+static void applyDnsSettings() {
+    static const struct { const char *key; const char *tmpl; } k_providers[] = {
+        { "AdGuard",    "https://dns.adguard-dns.com/dns-query" },
+        { "Cloudflare", "https://cloudflare-dns.com/dns-query"  },
+        { "NextDNS",    "https://dns.nextdns.io/dns-query"      },
+        { "Google",     "https://dns.google/dns-query"          },
+        { "System",     ""                                       },
+    };
+
+    // Read saved preference from QSettings (org/app match MainWindow)
+    QSettings s("SwordFish", "Browser");
+    QString provider = s.value("dns_provider", "AdGuard").toString();
+
+    const char *tmpl = "https://dns.adguard-dns.com/dns-query"; // default
+    for (const auto &p : k_providers) {
+        if (provider == p.key) { tmpl = p.tmpl; break; }
+    }
+
+    QWebEngineGlobalSettings::DnsMode mode;
+    if (tmpl[0] == '\0') {
+        mode.secureMode      = QWebEngineGlobalSettings::SecureDnsMode::SystemOnly;
+        mode.serverTemplates = {};
+    } else {
+        mode.secureMode      = QWebEngineGlobalSettings::SecureDnsMode::SecureWithFallback;
+        mode.serverTemplates = { QString::fromUtf8(tmpl) };
+    }
+    QWebEngineGlobalSettings::setDnsMode(mode);
+}
+
 int main(int argc, char *argv[]) {
+    // ── DNS-over-HTTPS — before QApplication (= before Chromium network init)
+    applyDnsSettings();
+
     // ── High-DPI support ──────────────────────────────────────────────────
     QApplication::setHighDpiScaleFactorRoundingPolicy(
         Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);

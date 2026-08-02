@@ -116,12 +116,20 @@ TabWidget::TabWidget(const QString &url, QWebEngineProfile *profile, QWidget *pa
         m_pdfViewer->setPage(pdfPage);
     }
 
-    if (!url.isEmpty()) {
-        m_browser->setUrl(QUrl(url));
-        checkPdf(QUrl(url));
-    }
-
     connect(m_browser, &QWebEngineView::urlChanged, this, &TabWidget::checkPdf);
+
+    // NOTE: do NOT call setUrl here.
+    // Callers (newTab) must call setWebChannel on the page first, then loadUrl().
+    // Stored so loadUrl() can be called later.
+    m_pendingUrl = url;
+}
+
+void TabWidget::loadUrl(const QString &url) {
+    QString target = url.isEmpty() ? m_pendingUrl : url;
+    if (!target.isEmpty()) {
+        m_browser->setUrl(QUrl(target));
+        checkPdf(QUrl(target));
+    }
 }
 
 void TabWidget::checkPdf(const QUrl &url) {
@@ -143,6 +151,51 @@ void TabWidget::onNewWindow(QWebEngineNewWindowRequest &request) {
         if (tw && tw->browser()) {
             request.openIn(tw->browser()->page());
         }
+    }
+}
+
+// ── ToolsBackend ──────────────────────────────────────────────────────────
+
+ToolsBackend::ToolsBackend(QObject *mainWindow, QObject *parent)
+    : QObject(parent), m_mainWindow(mainWindow) {}
+
+void ToolsBackend::run_tool(const QString &name) {
+    auto *mw = qobject_cast<MainWindow*>(m_mainWindow);
+    if (!mw) return;
+
+    // Map tool name (from tools.html onclick) → MainWindow slot
+    if      (name == "pdf_merge")        QMetaObject::invokeMethod(mw, "openPdfMerge");
+    else if (name == "pdf_split")        QMetaObject::invokeMethod(mw, "openPdfSplit");
+    else if (name == "word_to_pdf")      QMetaObject::invokeMethod(mw, "openWordToPdf");
+    else if (name == "pdf_to_word")      QMetaObject::invokeMethod(mw, "openPdfToWord");
+    else if (name == "xlsx_to_pdf")      QMetaObject::invokeMethod(mw, "openXlsxToPdf");
+    else if (name == "pdf_to_xlsx")      QMetaObject::invokeMethod(mw, "openPdfToXlsx");
+    else if (name == "csv_to_xlsx")      QMetaObject::invokeMethod(mw, "openCsvToXlsx");
+    else if (name == "xlsx_to_csv")      QMetaObject::invokeMethod(mw, "openXlsxToCsv");
+    else if (name == "pptx_to_pdf")      QMetaObject::invokeMethod(mw, "openPptxToPdf");
+    else if (name == "pdf_to_pptx")      QMetaObject::invokeMethod(mw, "openPdfToPptx");
+    else if (name == "image_to_pdf")     QMetaObject::invokeMethod(mw, "openImageToPdf");
+    else if (name == "pdf_to_image")     QMetaObject::invokeMethod(mw, "openPdfToImage");
+    else if (name == "text_to_pdf")      QMetaObject::invokeMethod(mw, "openTextToPdf");
+    else if (name == "pdf_to_text")      QMetaObject::invokeMethod(mw, "openPdfToText");
+    else if (name == "translate")        QMetaObject::invokeMethod(mw, "openTranslate");
+    else if (name == "transcript")       QMetaObject::invokeMethod(mw, "openTranscript");
+    else if (name == "archive")          QMetaObject::invokeMethod(mw, "openArchiveTools");
+    else if (name == "timer")            QMetaObject::invokeMethod(mw, "openTimer");
+    else if (name == "qr")               QMetaObject::invokeMethod(mw, "openQr");
+    else if (name == "calculator")       QMetaObject::invokeMethod(mw, "openCalculator");
+    else if (name == "unit_converter")   QMetaObject::invokeMethod(mw, "openUnitConverter");
+    else if (name == "programmer_calc")  QMetaObject::invokeMethod(mw, "openProgrammerCalc");
+    else if (name == "weather")          QMetaObject::invokeMethod(mw, "openWeather");
+    else if (name == "note")             QMetaObject::invokeMethod(mw, "openNoteTaker");
+    else if (name == "web_terminal") {
+        // Open a system terminal in a new tab via xterm.js served locally,
+        // or simply launch the system terminal and close the card gracefully.
+        QProcess::startDetached("bash", QStringList() << "-c"
+            << "x-terminal-emulator || gnome-terminal || xterm || konsole");
+    }
+    else {
+        qWarning() << "ToolsBackend::run_tool — unknown tool:" << name;
     }
 }
 
@@ -188,6 +241,10 @@ MainWindow::MainWindow(bool isPrivate, QWidget *parent)
     );
 
     m_channel = new QWebChannel(this);
+
+    // Register the tools backend so tools.html can call backend.run_tool(name)
+    m_toolsBackend = new ToolsBackend(this, this);
+    m_channel->registerObject("backend", m_toolsBackend);
 
     // Wire network-level ad blocking to the profile
     m_profile->setUrlRequestInterceptor(&getBlocker());
@@ -499,12 +556,23 @@ TabWidget *MainWindow::newTab(const QString &url) {
     m_tabs->setCurrentIndex(idx);
     auto *br = tw->browser();
     if (br->page()) {
+        // Set WebChannel BEFORE loading the URL — required for qrc:///tools.html
+        // so qt.webChannelTransport is available when the page's JS runs.
         br->page()->setWebChannel(m_channel);
     }
+    tw->loadUrl(); // Now safe to navigate — channel is already attached
     connect(br, &QWebEngineView::titleChanged, this, [this, tw, br](const QString &t) {
         updateTabTitle(tw, br, t);
     });
     connect(br, &QWebEngineView::urlChanged, this, &MainWindow::recordHistory);
+    // Block YouTube Shorts — redirect to YouTube homepage
+    connect(br, &QWebEngineView::urlChanged, this, [br](const QUrl &url) {
+        QString s = url.toString();
+        if (s.contains("youtube.com/shorts", Qt::CaseInsensitive) ||
+            s.contains("youtube.com/reels", Qt::CaseInsensitive)) {
+            br->setUrl(QUrl("https://www.youtube.com"));
+        }
+    });
     // Inject password capture on every navigation in this tab
     connect(br, &QWebEngineView::loadFinished, this, [this, br](bool) {
         if (br && br->page() && m_passwords)
@@ -593,6 +661,11 @@ void MainWindow::navigateToUrl() {
         url = "http://" + raw;
     } else {
         url = s_searchUrl + raw.replace(" ", "+");
+    }
+    // Block YouTube Shorts
+    if (url.contains("youtube.com/shorts", Qt::CaseInsensitive) ||
+        url.contains("youtube.com/reels", Qt::CaseInsensitive)) {
+        url = "https://www.youtube.com";
     }
     br->setUrl(QUrl(url));
 }
@@ -786,6 +859,7 @@ void MainWindow::showSettingsMenu() {
                 level == "medium" ? AdBlocker::Level::Medium :
                 AdBlocker::Level::Ultimate
             );
+            m_settings->setValue("adblock_level", level);
             QMessageBox::information(this, "Adblock Level",
                                      QString("Set to %1").arg(level));
         });
@@ -918,9 +992,19 @@ void MainWindow::injectAdblock() {
         '#masthead-ad', '#player-ads', '.ytd-display-ad-renderer',
         'ytd-promoted-sparkles-web-renderer', 'ytd-promoted-video-renderer',
         'ytd-compact-promoted-video-renderer',
-        // Shorts (optional)
-        // 'ytd-rich-shelf-renderer[is-shorts]',
-        // 'a[title="Shorts"]',
+        // YouTube Shorts — hide all Shorts UI everywhere
+        'ytd-rich-shelf-renderer[is-shorts]',
+        'ytd-reel-shelf-renderer',
+        'ytd-reel-video-renderer',
+        'ytd-reel-item-renderer',
+        'ytd-shorts',
+        '#shorts-container',
+        '#shorts-inner-container',
+        'a[title="Shorts"]',
+        'a[href="/shorts"]',
+        'ytd-guide-entry-renderer a[href="/shorts"]',
+        'ytd-mini-guide-entry-renderer a[href="/shorts"]',
+        '[title="Shorts"]',
     ];
 
     const AD_URL_KEYWORDS = [
@@ -984,12 +1068,12 @@ void MainWindow::injectDarkMode() {
 
     // ── Strategy ──────────────────────────────────────────────────────────
     // We inject TWO scripts:
-    //  1. A <style> with One Dark CSS, but ONLY applied when NOT on YouTube.
-    //     On YouTube we rely on color-scheme:dark + targeted ytd-* selectors
-    //     that deliberately skip Shorts (ytd-reel-*, #shorts-container).
-    //  2. A JS fixer that runs ONLY on YouTube, ONLY when dark mode is active,
-    //     that tracks which inline styles IT sets so removeDarkMode can undo them.
-    //     It never touches Shorts elements at all.
+    //  1. A <style> with One Dark CSS applied to all pages. On YouTube we rely
+    //     on color-scheme:dark + targeted ytd-* selectors.
+    //  2. A JS fixer that runs ONLY on YouTube to keep the stylesheet in place
+    //     across SPA navigations.
+    // NOTE: YouTube Shorts is fully blocked at the navigation level, so we no
+    //       longer need any Shorts-specific guards here.
     // ──────────────────────────────────────────────────────────────────────
 
     // ── 1. CSS ────────────────────────────────────────────────────────────
@@ -1014,7 +1098,7 @@ html:not(.ytd-app) {
 html { background-color: #282c34 !important; color: #abb2bf !important; }
 body { background-color: #282c34 !important; color: #abb2bf !important; }
 
-/* Text — NOTE: no span/div — too broad, breaks YouTube Shorts overlays */
+/* Text — NOTE: no span/div — too broad, breaks layout overlays */
 p, h1, h2, h3, h4, h5, h6,
 li, dt, dd, caption, figcaption,
 label, legend, summary, blockquote, cite, q {
@@ -1065,7 +1149,7 @@ tr:nth-child(even) { background-color: #2c313c !important; }
 code, pre, kbd { background-color: #21252b !important; color: #98c379 !important; }
 
 /* ══════════════════════════════════════════════════════════════
-   YOUTUBE — targeted selectors, Shorts elements EXCLUDED entirely
+   YOUTUBE — targeted selectors for dark theme
    ══════════════════════════════════════════════════════════════ */
 
 /* App shell */
@@ -1143,10 +1227,6 @@ ytd-player, [id*="player"], video, video * {
     opacity: 1 !important;
 }
 
-/* ── SHORTS — NEVER touched by CSS at all ──
-   Shorts is handled purely in JS (see below).
-   These selectors are intentionally absent from this stylesheet. */
-
 /* ── Media / visuals ── */
 video, img, canvas, picture, iframe, embed, object {
     filter: none !important; opacity: 1 !important;
@@ -1177,9 +1257,7 @@ video, img, canvas, picture, iframe, embed, object {
     (document.head || document.documentElement).appendChild(style);
 
     // ── YouTube-only dark mode helper ─────────────────────────────────
-    // Applies targeted dark styles to non-Shorts YouTube elements.
-    // Tracks every inline style we set in __sfSetProps so we can undo
-    // them precisely in light mode — we never guess or clear blindly.
+    // Applies targeted dark styles to YouTube elements via the stylesheet above.
     if (!location.hostname.includes('youtube.com')) return;
 
     // Map of element → original inline style string before we touched it
@@ -1191,18 +1269,6 @@ video, img, canvas, picture, iframe, embed, object {
         // Nothing to set — YouTube has its own dark theme.
         // We only ensure our global body/html rules don't bleed in.
         // The stylesheet handles ytd-* selectors above.
-    }
-
-    // ── SHORTS GUARD — never touch any Shorts element ─────────────────
-    function isShortsEl(el) {
-        const tag = el.tagName ? el.tagName.toLowerCase() : '';
-        if (tag.startsWith('ytd-reel') || tag === 'ytd-shorts') return true;
-        if (el.closest) {
-            if (el.closest('ytd-reel-video-renderer, ytd-shorts, ' +
-                           'ytd-reel-shelf-renderer, ytd-reel-item-renderer, ' +
-                           '#shorts-container, #shorts-inner-container')) return true;
-        }
-        return false;
     }
 
     // Override body bg only — do NOT touch any inline styles of yt elements
@@ -1377,11 +1443,10 @@ void MainWindow::showToolsMenu() {
 }
 
 void MainWindow::openToolsHub() {
-    QString appDir = QCoreApplication::applicationDirPath();
-    QString path = appDir + "/../src/tools.html";
-    if (QFile::exists(path)) {
-        newTab("file://" + path);
-    }
+    // tools.html is compiled into the binary as a Qt resource (qrc://).
+    // Using qrc:// instead of file:// is required for QWebChannel to work —
+    // Qt WebEngine injects qt.webChannelTransport only on non-file:// origins.
+    newTab("qrc:///tools.html");
 }
 
 // ── Tool Dialogs ──────────────────────────────────────────────────────────

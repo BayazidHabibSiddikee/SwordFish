@@ -16,9 +16,9 @@
 #include <QHeaderView>
 #include <QDir>
 #include <QFileInfo>
-#include <QStorageInfo>
 #include <QRegularExpression>
 #include <QKeyEvent>
+#include <algorithm>
 #include <QFrame>
 #include <QFont>
 #include <QApplication>
@@ -353,7 +353,11 @@ void FilePicker::populatePlaces() {
     m_places->clear();
 
     auto addPlace = [this](const QString &icon, const QString &label, const QString &path) {
+        // Only show places that are inside (or equal to) home
         if (path.isEmpty() || !QDir(path).exists()) return;
+        QString clean = QDir::cleanPath(path);
+        QString home  = QDir::cleanPath(QDir::homePath());
+        if (clean != home && !clean.startsWith(home + "/")) return;
         auto *item = new QListWidgetItem(icon + "  " + label, m_places);
         item->setData(Qt::UserRole, path);
         item->setToolTip(path);
@@ -371,31 +375,29 @@ void FilePicker::populatePlaces() {
     addPlace("🎵", "Music",     QStandardPaths::writableLocation(QStandardPaths::MusicLocation));
     addPlace("🎬", "Videos",    QStandardPaths::writableLocation(QStandardPaths::MoviesLocation));
 
-    // Mounted drives
-    bool drivesHeaderAdded = false;
-    for (const QStorageInfo &storage : QStorageInfo::mountedVolumes()) {
-        if (!storage.isValid() || !storage.isReady()) continue;
-        QString mp = storage.rootPath();
-        if (mp == "/") continue;
-        if (!drivesHeaderAdded) {
-            auto *sep = new QListWidgetItem("── Drives ──");
-            sep->setFlags(Qt::NoItemFlags);
-            sep->setForeground(QColor("#5c6370"));
-            m_places->addItem(sep);
-            drivesHeaderAdded = true;
-        }
-        QString name = storage.displayName().isEmpty()
-            ? QFileInfo(mp).fileName() : storage.displayName();
-        addPlace("💾", name, mp);
-    }
+    // Drives section intentionally removed — external drives are outside ~/
+    // and we restrict browsing to home directory only.
 }
 
 // ─── Tree navigation ─────────────────────────────────────────────────────────
+
+// Returns true if path is inside (or equal to) the user's home directory.
+static bool isUnderHome(const QString &path) {
+    QString clean = QDir::cleanPath(path);
+    QString home  = QDir::cleanPath(QDir::homePath());
+    return clean == home || clean.startsWith(home + "/");
+}
+
 void FilePicker::navigateTo(const QString &path) {
     if (path.isEmpty() || !QDir(path).exists()) return;
-    m_currentDir = QDir::cleanPath(path);
+    QString clean = QDir::cleanPath(path);
+    // Clamp to home — if somehow given a path outside ~/, redirect to home
+    if (!isUnderHome(clean))
+        clean = QDir::cleanPath(QDir::homePath());
+    m_currentDir = clean;
     m_pathLabel->setText(m_currentDir);
-    m_upBtn->setEnabled(m_currentDir != "/");
+    // Disable Up button when already at home root
+    m_upBtn->setEnabled(m_currentDir != QDir::cleanPath(QDir::homePath()));
     populateTree(m_currentDir);
     updateOkState();
 }
@@ -552,7 +554,11 @@ void FilePicker::onNameEdited(const QString &text) {
 void FilePicker::navigateUp() {
     QDir d(m_currentDir);
     d.cdUp();
-    navigateTo(d.absolutePath());
+    QString parent = QDir::cleanPath(d.absolutePath());
+    // Never go above ~/
+    if (!isUnderHome(parent))
+        parent = QDir::cleanPath(QDir::homePath());
+    navigateTo(parent);
 }
 
 void FilePicker::navigateHome() {
@@ -590,6 +596,11 @@ void FilePicker::confirmSelection() {
     } else if (m_mode == Mode::Directory) {
         m_selected = {m_currentDir};
     }
+    // Final guard — reject anything outside ~/
+    m_selected.erase(
+        std::remove_if(m_selected.begin(), m_selected.end(),
+            [](const QString &p) { return !isUnderHome(p); }),
+        m_selected.end());
     if (!m_selected.isEmpty()) accept();
 }
 

@@ -67,24 +67,6 @@
             margin-top: 8px;
             line-height: 1.4;
         }
-        .dl-btn {
-            margin-top: 12px;
-            padding: 6px 10px;
-            background: #f0faff;
-            border: 1px solid #ade8f4;
-            color: #0077b6;
-            border-radius: 6px;
-            font-size: 11px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: all 0.2s;
-            width: 100%;
-        }
-        .dl-btn:hover {
-            background: #00b4d8;
-            color: white;
-            border-color: #00b4d8;
-        }
     </style>
 </head>
 <body>
@@ -201,6 +183,16 @@
                 <div class="tool-name">Calculator</div>
                 <div class="tool-desc">Quick calculations</div>
             </div>
+            <div class="tool-card" onclick="runTool('unit_converter')">
+                <span class="tool-icon">📐</span>
+                <div class="tool-name">Unit Converter</div>
+                <div class="tool-desc">Length, weight, temp and more</div>
+            </div>
+            <div class="tool-card" onclick="runTool('programmer_calc')">
+                <span class="tool-icon">🖥️</span>
+                <div class="tool-name">Programmer Calc</div>
+                <div class="tool-desc">Bin / Hex / Oct / Dec converter</div>
+            </div>
             <div class="tool-card" onclick="runTool('weather')">
                 <span class="tool-icon">🌡</span>
                 <div class="tool-name">Weather</div>
@@ -213,8 +205,8 @@
             </div>
             <div class="tool-card" onclick="runTool('web_terminal')">
                 <span class="tool-icon">💻</span>
-                <div class="tool-name">Web Terminal</div>
-                <div class="tool-desc">Access full terminal environment</div>
+                <div class="tool-name">Terminal</div>
+                <div class="tool-desc">Open system terminal</div>
             </div>
         </div>
 
@@ -229,67 +221,23 @@
 
     <script src="qrc:///qtwebchannel/qwebchannel.js"></script>
     <script>
-        var backend;
-        new QWebChannel(qt.webChannelTransport, function (channel) {
+        var backend = null;
+
+        new QWebChannel(qt.webChannelTransport, function(channel) {
             backend = channel.objects.backend;
-            if (backend.toolDownloaded) {
-                backend.toolDownloaded.connect(function(name, success) {
-                    let btn = document.getElementById("dl-btn-" + name);
-                    if (btn) {
-                        if (success) {
-                            btn.innerHTML = "✅ Downloaded";
-                            btn.style.background = "#d4edda";
-                            btn.style.borderColor = "#c3e6cb";
-                            btn.style.color = "#155724";
-                        } else {
-                            btn.innerHTML = "❌ Failed";
-                            btn.style.background = "#f8d7da";
-                            btn.style.borderColor = "#f5c6cb";
-                            btn.style.color = "#721c24";
-                        }
-                    }
-                });
-            }
         });
 
         function runTool(name) {
             if (backend) {
                 backend.run_tool(name);
             } else {
-                console.error("Backend not connected");
+                // Channel not ready yet — retry once after a short delay
+                setTimeout(function() {
+                    if (backend) backend.run_tool(name);
+                    else alert("Tools backend not available. Please reload the page.");
+                }, 300);
             }
         }
-
-        function downloadTool(event, name) {
-            event.stopPropagation();
-            if (backend && backend.download_tool) {
-                let btn = event.target;
-                btn.innerHTML = "⏳ Downloading...";
-                btn.style.background = "#e9ecef";
-                btn.style.borderColor = "#dee2e6";
-                btn.style.color = "#6c757d";
-                backend.download_tool(name);
-            }
-        }
-
-        document.addEventListener("DOMContentLoaded", () => {
-            document.querySelectorAll('.tool-card').forEach(card => {
-                let onclickAttr = card.getAttribute('onclick');
-                let toolName = "unknown";
-                if (onclickAttr && onclickAttr.includes("runTool('")) {
-                    toolName = onclickAttr.split("runTool('")[1].split("')")[0];
-                } else if (onclickAttr && onclickAttr.includes(".href=")) {
-                    toolName = "ai_reader";
-                }
-                
-                let btn = document.createElement('button');
-                btn.id = 'dl-btn-' + toolName;
-                btn.className = 'dl-btn';
-                btn.innerHTML = '⬇️ Download Module';
-                btn.onclick = (e) => downloadTool(e, toolName);
-                card.appendChild(btn);
-            });
-        });
     </script>
 </body>
 </html>

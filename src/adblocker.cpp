@@ -1,6 +1,7 @@
 #include "adblocker.h"
 #include <QUrl>
 #include <QRegularExpression>
+#include <QSettings>
 #include <algorithm>
 #include <cctype>
 
@@ -143,9 +144,19 @@ bool AdBlocker::checkContentAdult(const QString &text, const QString &title) con
     return std::regex_search(t, s_adultKeywords) || std::regex_search(txt, s_adultKeywords);
 }
 
-// Global singleton — level persists across calls from Settings menu
+// Global singleton — level persists across restarts via QSettings
 static AdBlocker *s_blocker = nullptr;
 AdBlocker &getBlocker() {
-    if (!s_blocker) s_blocker = new AdBlocker(nullptr, AdBlocker::Level::Medium);
+    if (!s_blocker) {
+        // Load saved level; default is Medium
+        QSettings s("SwordFish", "Browser");
+        QString saved = s.value("adblock_level", "medium").toString();
+        AdBlocker::Level lvl =
+            saved == "none"     ? AdBlocker::Level::None     :
+            saved == "low"      ? AdBlocker::Level::Low      :
+            saved == "ultimate" ? AdBlocker::Level::Ultimate :
+                                  AdBlocker::Level::Medium;
+        s_blocker = new AdBlocker(nullptr, lvl);
+    }
     return *s_blocker;
 }

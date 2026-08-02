@@ -32,6 +32,24 @@
 
 class CustomWebPage;
 
+// ── ToolsBackend ──────────────────────────────────────────────────────────
+// Exposed to tools.html via QWebChannel as channel.objects.backend.
+// Every card in tools.html calls backend.run_tool(name).
+class ToolsBackend : public QObject {
+    Q_OBJECT
+public:
+    explicit ToolsBackend(QObject *mainWindow, QObject *parent = nullptr);
+
+public slots:
+    Q_INVOKABLE void run_tool(const QString &name);
+
+signals:
+    void toolDownloaded(const QString &name, bool success);
+
+private:
+    QObject *m_mainWindow;  // MainWindow* — avoid circular include
+};
+
 class TabWidget : public QWidget {
     Q_OBJECT
 
@@ -39,6 +57,10 @@ public:
     explicit TabWidget(const QString &url, QWebEngineProfile *profile, QWidget *parent = nullptr);
     QWebEngineView *browser() const { return m_browser; }
     QWebEngineView *pdfViewer() const { return m_pdfViewer; }
+
+    // Call after setWebChannel() to trigger the actual page load.
+    // Optionally pass a different URL to override the one given to the constructor.
+    void loadUrl(const QString &url = QString());
 
     bool isPinned = false;
     bool isMuted  = false;
@@ -51,6 +73,7 @@ private:
     QSplitter *m_splitter;
     QWebEngineView *m_browser;
     QWebEngineView *m_pdfViewer;
+    QString    m_pendingUrl;   // stored in ctor, navigated in loadUrl()
 };
 
 class MainWindow : public QMainWindow {
@@ -199,11 +222,12 @@ private:
     QMap<QString, double> m_zoomLevels;
 
     // Features
-    PasswordManager  *m_passwords  = nullptr;
-    ExtensionSystem  *m_extensions = nullptr;
-    SyncManager      *m_sync       = nullptr;
-    MediaBar         *m_mediaBar   = nullptr;
-    ReadingMode      *m_reader     = nullptr;
-    PipWindow        *m_pip        = nullptr;
+    PasswordManager  *m_passwords     = nullptr;
+    ExtensionSystem  *m_extensions    = nullptr;
+    SyncManager      *m_sync          = nullptr;
+    MediaBar         *m_mediaBar      = nullptr;
+    ReadingMode      *m_reader        = nullptr;
+    PipWindow        *m_pip           = nullptr;
+    ToolsBackend     *m_toolsBackend  = nullptr;
     QMetaObject::Connection m_readerTitleConn;
 };

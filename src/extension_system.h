@@ -4,6 +4,8 @@
 #include <QObject>
 #include <QString>
 #include <QList>
+#include <QNetworkAccessManager>
+#include <QNetworkReply>
 
 class QWebEngineProfile;
 class QWidget;
@@ -28,6 +30,11 @@ public:
     void unloadAll();
     void setEnabled(const QString &name, bool enabled);
 
+    // Download a .user.js from a URL and save it to the extensions folder.
+    // Calls onDone(success, message) when finished.
+    void installFromUrl(const QString &url,
+                        std::function<void(bool, const QString &)> onDone);
+
     QList<UserScript> scripts() const { return m_scripts; }
     QString extensionsDir() const { return m_dir; }
 
@@ -40,4 +47,5 @@ private:
     QString            m_dir;
     QWebEngineProfile *m_profile;
     QList<UserScript>  m_scripts;
+    QNetworkAccessManager m_nam;
 };

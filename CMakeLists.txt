@@ -42,6 +42,7 @@ set(SOURCES
     src/sync_manager.cpp
     src/media_bar.cpp
     src/reading_mode.cpp
+    src/resources.qrc
     # tools
     src/tools/pdf_tools.cpp
     src/tools/doc_tools.cpp
