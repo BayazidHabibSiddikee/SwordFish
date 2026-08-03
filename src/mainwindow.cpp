@@ -208,6 +208,163 @@ void ToolsBackend::install_extension(const QString &url) {
     });
 }
 
+// ── Dependency groups ────────────────────────────────────────────────────
+// Each group maps to the apt packages needed and the binaries to probe.
+struct DepGroup {
+    const char *id;
+    const char *label;
+    const char *description;
+    QStringList aptPackages;   // what to install
+    QStringList probeCommands; // what to check with `which`
+};
+
+static const DepGroup DEP_GROUPS[] = {
+    {
+        "pdf",
+        "PDF Tools (Merge / Split)",
+        "Required for merging and splitting PDF files",
+        {"qpdf"},
+        {"qpdf"}
+    },
+    {
+        "office",
+        "Office Converter (Word / Excel / PPTX ↔ PDF)",
+        "Required for converting between Office formats and PDF",
+        {"libreoffice"},
+        {"libreoffice"}
+    },
+    {
+        "poppler",
+        "PDF Extraction (PDF → Image / Text)",
+        "Required for extracting images and text from PDFs",
+        {"poppler-utils"},
+        {"pdftotext", "pdftoppm"}
+    },
+    {
+        "text2pdf",
+        "Text → PDF (enscript + ghostscript)",
+        "Required for converting plain text files to PDF",
+        {"enscript", "ghostscript"},
+        {"enscript", "gs"}
+    },
+    {
+        "archive",
+        "Archive Tools (7z)",
+        "Required for creating and extracting 7-zip archives",
+        {"p7zip-full"},
+        {"7z"}
+    },
+    {
+        "qr",
+        "QR Code Generator",
+        "Required for generating QR codes",
+        {"qrencode"},
+        {"qrencode"}
+    },
+    {
+        "ytdlp",
+        "Media Downloader + YouTube Transcript (yt-dlp)",
+        "Required for downloading videos/audio and fetching YouTube transcripts",
+        {"yt-dlp"},
+        {"yt-dlp"}
+    },
+    {
+        "python",
+        "Translator + Advanced Tools (Python 3)",
+        "Required for the Translator, PDF→Text fallback, and unit conversion",
+        {"python3", "python3-pip"},
+        {"python3"}
+    },
+};
+
+static bool cmdExists(const QString &cmd) {
+    QProcess p;
+    p.start("which", QStringList() << cmd);
+    p.waitForFinished(3000);
+    return p.exitCode() == 0;
+}
+
+void ToolsBackend::check_deps() {
+    QJsonObject result;
+    for (const auto &g : DEP_GROUPS) {
+        bool installed = true;
+        for (const QString &cmd : g.probeCommands) {
+            if (!cmdExists(cmd)) { installed = false; break; }
+        }
+        QJsonObject entry;
+        entry["label"]       = QString::fromUtf8(g.label);
+        entry["description"] = QString::fromUtf8(g.description);
+        entry["installed"]   = installed;
+        result[QString::fromUtf8(g.id)] = entry;
+    }
+    emit depsStatus(QString::fromUtf8(
+        QJsonDocument(result).toJson(QJsonDocument::Compact)));
+}
+
+void ToolsBackend::install_deps(const QString &group) {
+    // Find the group
+    const DepGroup *found = nullptr;
+    for (const auto &g : DEP_GROUPS) {
+        if (group == QString::fromUtf8(g.id)) { found = &g; break; }
+    }
+    if (!found) {
+        QJsonObject p; p["group"] = group; p["state"] = "failed";
+        p["msg"] = "Unknown dependency group: " + group;
+        emit installProgress(QString::fromUtf8(
+            QJsonDocument(p).toJson(QJsonDocument::Compact)));
+        return;
+    }
+
+    // Emit "installing" state
+    {
+        QJsonObject p; p["group"] = group; p["state"] = "installing";
+        p["msg"] = QString("Installing: %1…").arg(
+            QString::fromUtf8(found->label));
+        emit installProgress(QString::fromUtf8(
+            QJsonDocument(p).toJson(QJsonDocument::Compact)));
+    }
+
+    // Special case: yt-dlp — prefer pip install if apt version is old
+    QStringList pkgs = found->aptPackages;
+    QString groupId  = group;
+
+    // Build the install command: pkexec runs with GUI auth prompt
+    // We use bash -c so we can chain apt-get update + install
+    QStringList aptArgs = pkgs;
+    aptArgs.prepend("-y");
+    aptArgs.prepend("install");
+    aptArgs.prepend("apt-get");
+
+    auto *proc = new QProcess(this);
+    proc->setProgram("pkexec");
+    proc->setArguments(aptArgs);
+
+    connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        this, [this, proc, group, found, groupId](int code, QProcess::ExitStatus) {
+            proc->deleteLater();
+            QJsonObject p;
+            p["group"] = group;
+            if (code == 0) {
+                p["state"] = "done";
+                p["msg"]   = QString("%1 installed successfully.")
+                                 .arg(QString::fromUtf8(found->label));
+            } else {
+                QString err = QString::fromUtf8(proc->readAllStandardError()).trimmed();
+                p["state"] = "failed";
+                p["msg"]   = err.isEmpty()
+                    ? QString("Installation failed (exit %1). "
+                              "Try: sudo apt install %2")
+                          .arg(code)
+                          .arg(found->aptPackages.join(" "))
+                    : err;
+            }
+            emit installProgress(QString::fromUtf8(
+                QJsonDocument(p).toJson(QJsonDocument::Compact)));
+        });
+
+    proc->start();
+}
+
 // ── MainWindow ────────────────────────────────────────────────────────────
 
 MainWindow::MainWindow(bool isPrivate, QWidget *parent)

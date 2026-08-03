@@ -118,6 +118,70 @@
             padding: 5px;
             background: white;
         }
+        /* ── Dependency cards ── */
+        .check-btn {
+            padding: 8px 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-name);
+            font-size: 13px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .check-btn:hover { background: var(--bg-hover); }
+        .deps-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+            margin-bottom: 10px;
+        }
+        .dep-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+        .dep-card .dep-name {
+            font-size: 14px;
+            font-weight: bold;
+            color: var(--text-name);
+        }
+        .dep-card .dep-desc {
+            font-size: 11px;
+            color: var(--text-desc);
+            line-height: 1.4;
+        }
+        .dep-card .dep-status {
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .dep-card .dep-status.ok   { color: #98c379; }
+        .dep-card .dep-status.miss { color: #e5c07b; }
+        .dep-card .dep-install-btn {
+            margin-top: 4px;
+            padding: 7px 14px;
+            border-radius: 7px;
+            border: none;
+            background: var(--heading);
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            align-self: flex-start;
+        }
+        .dep-card .dep-install-btn:hover    { opacity: 0.85; }
+        .dep-card .dep-install-btn:disabled { opacity: 0.45; cursor: default; }
+        .dep-card .dep-msg {
+            font-size: 11px;
+            color: var(--text-desc);
+            min-height: 14px;
+        }
         /* ── Extension install bar ── */
         .install-box {
             display: flex;
@@ -255,6 +319,21 @@
             </div>
         </div>
 
+        <div class="section-title">📦 Optional Dependencies</div>
+        <p style="font-size:13px; color:var(--text-desc); margin: -8px 0 14px;">
+            These packages are only needed for specific tools. Install only what you use.
+            Click <strong>Check</strong> to see what's already installed.
+        </p>
+        <div style="margin-bottom:10px;">
+            <button class="check-btn" onclick="checkDeps()">🔍 Check installed</button>
+        </div>
+        <div id="depsGrid" class="deps-grid">
+            <!-- filled by JS after check_deps() -->
+            <div style="color:var(--text-desc); font-size:13px; padding:8px;">
+                Click "Check installed" to see dependency status.
+            </div>
+        </div>
+
         <div class="section-title">🧩 Install UserScript Extension</div>
         <div class="install-box">
             <input type="text" id="scriptUrl" placeholder="Paste a Greasy Fork page URL or any .user.js link…" />
@@ -326,12 +405,25 @@
 
         new QWebChannel(qt.webChannelTransport, function(channel) {
             backend = channel.objects.backend;
-            // Listen for install result signal from C++
+
             if (backend.extensionInstalled) {
                 backend.extensionInstalled.connect(function(success, message) {
                     onExtensionInstalled(success, message);
                 });
             }
+            if (backend.depsStatus) {
+                backend.depsStatus.connect(function(json) {
+                    onDepsStatus(JSON.parse(json));
+                });
+            }
+            if (backend.installProgress) {
+                backend.installProgress.connect(function(json) {
+                    onInstallProgress(JSON.parse(json));
+                });
+            }
+
+            // Auto-check deps on load
+            backend.check_deps();
         });
 
         // Allow pressing Enter in the URL input to trigger install
@@ -339,11 +431,11 @@
             if (e.key === 'Enter') installScript();
         });
 
+        // ── Tool runner ───────────────────────────────────────────────────
         function runTool(name) {
             if (backend) {
                 backend.run_tool(name);
             } else {
-                // Channel not ready yet — retry once after a short delay
                 setTimeout(function() {
                     if (backend) backend.run_tool(name);
                     else alert("Tools backend not available. Please reload the page.");
@@ -351,38 +443,126 @@
             }
         }
 
+        // ── Extension install ─────────────────────────────────────────────
         function installScript() {
             var url = document.getElementById('scriptUrl').value.trim();
             if (!url) return;
-
             var btn    = document.getElementById('installBtn');
             var status = document.getElementById('installStatus');
-
             if (!backend) {
-                status.style.color = 'red';
+                status.style.color = '#e06c75';
                 status.textContent = '❌ Backend not ready — try again in a moment.';
                 return;
             }
-
             btn.disabled = true;
             status.style.color = 'var(--text-desc)';
-            status.textContent  = '⏳ Downloading…';
-
+            status.textContent = '⏳ Downloading…';
             backend.install_extension(url);
         }
 
-        // Called by ToolsBackend when install finishes
         function onExtensionInstalled(success, message) {
             var btn    = document.getElementById('installBtn');
             var status = document.getElementById('installStatus');
             btn.disabled = false;
             if (success) {
                 status.style.color = '#98c379';
-                status.textContent  = '✅ Installed: ' + message;
+                status.textContent = '✅ Installed: ' + message;
                 document.getElementById('scriptUrl').value = '';
             } else {
                 status.style.color = '#e06c75';
-                status.textContent  = '❌ Failed: ' + message;
+                status.textContent = '❌ Failed: ' + message;
+            }
+        }
+
+        // ── Dependency check / install ────────────────────────────────────
+        function checkDeps() {
+            if (!backend) return;
+            document.getElementById('depsGrid').innerHTML =
+                '<div style="color:var(--text-desc);font-size:13px;padding:8px;">⏳ Checking…</div>';
+            backend.check_deps();
+        }
+
+        function onDepsStatus(status) {
+            var grid = document.getElementById('depsGrid');
+            grid.innerHTML = '';
+            var groups = Object.keys(status);
+            if (groups.length === 0) {
+                grid.innerHTML = '<div style="color:var(--text-desc);font-size:13px;">No dependency info available.</div>';
+                return;
+            }
+            groups.forEach(function(id) {
+                var g = status[id];
+                var card = document.createElement('div');
+                card.className = 'dep-card';
+                card.id = 'dep-card-' + id;
+
+                var nameEl = document.createElement('div');
+                nameEl.className = 'dep-name';
+                nameEl.textContent = g.label;
+
+                var descEl = document.createElement('div');
+                descEl.className = 'dep-desc';
+                descEl.textContent = g.description;
+
+                var stEl = document.createElement('div');
+                stEl.className = 'dep-status ' + (g.installed ? 'ok' : 'miss');
+                stEl.id = 'dep-status-' + id;
+                stEl.textContent = g.installed ? '✅ Installed' : '⚠ Not installed';
+
+                var msgEl = document.createElement('div');
+                msgEl.className = 'dep-msg';
+                msgEl.id = 'dep-msg-' + id;
+
+                card.appendChild(nameEl);
+                card.appendChild(descEl);
+                card.appendChild(stEl);
+                card.appendChild(msgEl);
+
+                if (!g.installed) {
+                    var btn = document.createElement('button');
+                    btn.className = 'dep-install-btn';
+                    btn.id = 'dep-btn-' + id;
+                    btn.textContent = '⬇️ Install';
+                    btn.onclick = (function(gid) {
+                        return function() { installDep(gid); };
+                    })(id);
+                    card.appendChild(btn);
+                }
+
+                grid.appendChild(card);
+            });
+        }
+
+        function installDep(id) {
+            if (!backend) return;
+            var btn = document.getElementById('dep-btn-' + id);
+            if (btn) btn.disabled = true;
+            var msg = document.getElementById('dep-msg-' + id);
+            if (msg) msg.textContent = '⏳ Starting install — a password prompt will appear…';
+            backend.install_deps(id);
+        }
+
+        function onInstallProgress(data) {
+            var id    = data.group;
+            var state = data.state;
+            var txt   = data.msg;
+
+            var stEl  = document.getElementById('dep-status-' + id);
+            var msgEl = document.getElementById('dep-msg-'    + id);
+            var btn   = document.getElementById('dep-btn-'    + id);
+
+            if (msgEl) msgEl.textContent = txt;
+
+            if (state === 'done') {
+                if (stEl)  { stEl.className = 'dep-status ok'; stEl.textContent = '✅ Installed'; }
+                if (btn)   btn.remove();
+                if (msgEl) { msgEl.style.color = '#98c379'; }
+            } else if (state === 'failed') {
+                if (btn)   btn.disabled = false;
+                if (msgEl) msgEl.style.color = '#e06c75';
+            } else {
+                // installing
+                if (msgEl) msgEl.style.color = 'var(--text-desc)';
             }
         }
     </script>

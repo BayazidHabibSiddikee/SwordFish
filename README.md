@@ -29,6 +29,8 @@ Open from the **🔧 Tools** menu. All tools are built-in — no downloads requi
 | **Language & Media** | Translator, YouTube Transcript |
 | **Utilities** | Calculator, Unit Converter, Programmer Calc (Bin/Hex/Oct/Dec), Archive Tools (Zip/7z/Tar), Timer, QR Generator, Weather, Note Taker, Terminal |
 
+> **📦 Optional Dependencies** — The Tools Hub has a built-in dependency manager. Open the hub and the **📦 Optional Dependencies** section automatically checks which tools are installed. Click **⬇️ Install** next to any missing group (e.g. LibreOffice for Office tools, yt-dlp for media download, qpdf for PDF merge). A system password prompt will appear to authorize the install — no terminal needed.
+
 ### 🧩 Extensions (UserScripts)
 - Load Greasemonkey/Tampermonkey-compatible `.user.js` scripts from `~/.config/SwordFish/extensions/`
 - **Install from Tools Hub** — paste a Greasy Fork page URL or any `.user.js` direct link in the install bar on the Tools Hub page; auto-downloads, validates, and activates immediately — no dialog needed

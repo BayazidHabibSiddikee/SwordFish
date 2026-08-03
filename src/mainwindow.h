@@ -37,6 +37,8 @@ class CustomWebPage;
 // Every card in tools.html calls backend.run_tool(name).
 // install_extension(url) triggers an extension install and emits
 // extensionInstalled(success, message) when done — tools.html listens for it.
+// check_deps() emits depsStatus(json) with installed/missing state per group.
+// install_deps(group) runs pkexec apt-get install for the requested group.
 class ToolsBackend : public QObject {
     Q_OBJECT
 public:
@@ -45,9 +47,15 @@ public:
 public slots:
     Q_INVOKABLE void run_tool(const QString &name);
     Q_INVOKABLE void install_extension(const QString &url);
+    Q_INVOKABLE void check_deps();
+    Q_INVOKABLE void install_deps(const QString &group);
 
 signals:
     void extensionInstalled(bool success, const QString &message);
+    // JSON string: { "group": { "label": "...", "installed": true/false }, ... }
+    void depsStatus(const QString &jsonStatus);
+    // Emitted during install: { "group": "...", "state": "installing"|"done"|"failed", "msg": "..." }
+    void installProgress(const QString &jsonProgress);
 
 private:
     QObject *m_mainWindow;  // MainWindow* — avoid circular include
