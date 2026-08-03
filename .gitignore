@@ -29,3 +29,4 @@ __pypackages__/
 .venv/
 *.spec~
 
+install_test/

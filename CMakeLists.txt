@@ -247,4 +247,44 @@ set(CPACK_NSIS_CREATE_ICONS_EXTRA
 set(CPACK_NSIS_DELETE_ICONS_EXTRA
     "Delete '$SMPROGRAMS\\\\$STARTMENU_FOLDER\\\\SwordFish.lnk'")
 
+# ── Windows: install Qt DLLs and runtime into bin/ for NSIS packaging ─────────
+if(WIN32)
+    # Qt DLLs and MSVC runtime from the build output directory
+    install(DIRECTORY "${CMAKE_BINARY_DIR}/Release/"
+        DESTINATION bin
+        COMPONENT Runtime
+        FILES_MATCHING
+            PATTERN "*.dll"
+            PATTERN "*.exe"
+            PATTERN "*.dat"
+            PATTERN "*.pak"
+            PATTERN "*.bin"
+    )
+    # Qt plugin subdirectories (platforms, imageformats, etc.)
+    foreach(_dir generic iconengines imageformats networkinformation platforms
+                 position qmltooling styles tls resources translations)
+        if(EXISTS "${CMAKE_BINARY_DIR}/Release/${_dir}")
+            install(DIRECTORY "${CMAKE_BINARY_DIR}/Release/${_dir}"
+                DESTINATION bin
+                COMPONENT Runtime
+            )
+        endif()
+    endforeach()
+    # QML directory
+    if(EXISTS "${CMAKE_BINARY_DIR}/Release/qml")
+        install(DIRECTORY "${CMAKE_BINARY_DIR}/Release/qml"
+            DESTINATION bin
+            COMPONENT Runtime
+        )
+    endif()
+    # vcpkg runtime DLLs (curl, zlib)
+    if(EXISTS "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin")
+        install(DIRECTORY "${_VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/bin/"
+            DESTINATION bin
+            COMPONENT Runtime
+            FILES_MATCHING PATTERN "*.dll"
+        )
+    endif()
+endif()
+
 include(CPack)
