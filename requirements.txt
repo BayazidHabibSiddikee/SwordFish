@@ -1,27 +1,8 @@
-PySide6
-yt-dlp
-pypdf
-arrow
+# SwordFish v2.0 — Python optional tool dependencies
+# These are NOT required to run the browser.
+# Install only what you need, or let the Tools Hub manage it for you.
+#
+# Used by: Translator, YouTube Transcript (via yt-dlp), PDF→Text fallback
 deep-translator
+yt-dlp
 youtube-transcript-api
-requests
-duckduckgo-search
-geopy
-folium
-beautifulsoup4
-httpx
-pyttsx3
-python-docx
-pikepdf
-img2pdf
-qrcode
-fpdf2
-adblockparser
-mammoth
-pymupdf
-pdf2docx
-pandas
-openpyxl
-pdfplumber
-python-pptx
-py7zr

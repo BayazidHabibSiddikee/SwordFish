@@ -1,170 +1,69 @@
 @echo off
 setlocal enabledelayedexpansion
-:: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-::  🗡️  SwordFish Browser — Installer (Windows)
-:: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-:: Always work from the folder this .bat file lives in,
-:: regardless of where the user launched it from.
+:: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+::  🗡️  SwordFish Browser v2.0 — Windows Build Dependencies Installer
+::  Run this in an Administrator Command Prompt before building.
+::  Requires: winget (Windows 10 1709+ / Windows 11)
+:: ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 cd /d "%~dp0"
 
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-echo   SwordFish Browser - Windows Installer
-echo   Repo dir: %~dp0
+echo   SwordFish Browser — Windows Dependencies
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 echo.
 
-:: ── 0. Locate Python ─────────────────────────────────────────────────────────
-:: Try  py  launcher first (installed with official Python for Windows),
-:: then fall back to plain  python  and  python3.
-set PYTHON=
-for %%C in (py python python3) do (
-    if not defined PYTHON (
-        %%C --version >nul 2>&1 && set PYTHON=%%C
-    )
-)
-
-if not defined PYTHON (
-    echo [ERROR] Python not found.
-    echo         Download and install it from https://www.python.org/downloads/
-    echo         Make sure to tick "Add Python to PATH" during installation.
-    echo.
-    pause
-    exit /b 1
-)
-echo [OK] Python found: %PYTHON%
-%PYTHON% --version
-echo.
-
-:: ── 1. Upgrade pip (silently) ─────────────────────────────────────────────────
-echo [1/4] Upgrading pip...
-%PYTHON% -m pip install --upgrade pip --quiet
-echo.
-
-:: ── 2. Install Python packages ───────────────────────────────────────────────
-echo [2/4] Installing Python packages...
-
-:: Prefer requirements.txt if it exists, otherwise install the known list
-:: directly so the script works even without that file in the repo.
-if exist "requirements.txt" (
-    echo       (using requirements.txt)
-    %PYTHON% -m pip install -r requirements.txt
-) else (
-    echo       (requirements.txt not found — installing known package list)
-    %PYTHON% -m pip install ^
-        PySide6 yt-dlp pypdf arrow deep-translator ^
-        youtube-transcript-api requests duckduckgo-search ^
-        geopy folium beautifulsoup4 httpx pyttsx3 ^
-        python-docx pikepdf img2pdf qrcode fpdf2 adblockparser ^
-        mammoth pymupdf pdf2docx pandas openpyxl pdfplumber
-)
-
+:: ── Check winget ─────────────────────────────────────────────────────────────
+winget --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo.
-    echo [ERROR] pip install failed. Check the errors above.
+    echo [ERROR] winget not found.
+    echo         Install the App Installer from the Microsoft Store, then re-run.
     pause
     exit /b 1
 )
+echo [OK] winget found.
 echo.
 
-:: ── 3. Install ffmpeg ────────────────────────────────────────────────────────
-echo [3/4] Installing ffmpeg...
-ffmpeg -version >nul 2>&1
+:: ── 1. CMake ─────────────────────────────────────────────────────────────────
+echo [1/4] Installing CMake...
+cmake --version >nul 2>&1
 if %errorlevel% equ 0 (
-    echo       ffmpeg is already on PATH — skipping.
+    echo       Already installed.
 ) else (
-    :: Try winget (available on Windows 10 1709+ with App Installer)
-    winget --version >nul 2>&1
-    if %errorlevel% equ 0 (
-        winget install --id Gyan.FFmpeg -e --silent
-        if !errorlevel! neq 0 (
-            echo  [!] winget install failed. Install ffmpeg manually:
-            echo      1. Download from https://ffmpeg.org/download.html
-            echo      2. Extract the archive somewhere (e.g. C:\ffmpeg)
-            echo      3. Add C:\ffmpeg\bin to your System PATH.
-        ) else (
-            echo       ffmpeg installed via winget.
-            echo  [!] You may need to restart this window for ffmpeg to be on PATH.
-        )
-    ) else (
-        echo  [!] winget not available on this system.
-        echo      Install ffmpeg manually:
-        echo      1. Download from https://ffmpeg.org/download.html
-        echo      2. Extract the archive somewhere (e.g. C:\ffmpeg)
-        echo      3. Add C:\ffmpeg\bin to your System PATH.
-    )
-)
-echo.
-
-:: ── 4. Create a Start Menu shortcut ─────────────────────────────────────────
-echo [4/4] Creating Start Menu shortcut...
-
-set REPO_DIR=%~dp0
-:: Strip trailing backslash
-if "%REPO_DIR:~-1%"=="\" set REPO_DIR=%REPO_DIR:~0,-1%
-
-set SHORTCUT_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs
-set SHORTCUT=%SHORTCUT_DIR%\SwordFish Browser.lnk
-set LAUNCHER=%REPO_DIR%\swordfish.bat
-set ICON=%REPO_DIR%\icon.ico
-
-:: Generate swordfish.bat so it always cd's to the right place before launching
-(
-    echo @echo off
-    echo cd /d "%REPO_DIR%"
-    echo start "" "%PYTHON%" "%REPO_DIR%\src\main.py" %%*
-) > "%LAUNCHER%"
-echo       Launcher written: %LAUNCHER%
-
-:: Use PowerShell to create the .lnk shortcut (no extra tools needed)
-set PS_SCRIPT=%TEMP%\sf_shortcut_%RANDOM%.ps1
-(
-    echo $ws  = New-Object -ComObject WScript.Shell
-    echo $lnk = $ws.CreateShortcut('%SHORTCUT%'^)
-    echo $lnk.TargetPath      = '%LAUNCHER%'
-    echo $lnk.WorkingDirectory = '%REPO_DIR%'
-    if exist "%ICON%" (
-        echo $lnk.IconLocation = '%ICON%'
-    ) else (
-        echo $lnk.IconLocation = '%PYTHON%,0'
-    )
-    echo $lnk.Description = 'SwordFish Browser'
-    echo $lnk.Save(^)
-) > "%PS_SCRIPT%"
-
-powershell -NoProfile -ExecutionPolicy Bypass -File "%PS_SCRIPT%" >nul 2>&1
-del "%PS_SCRIPT%" >nul 2>&1
-
-if exist "%SHORTCUT%" (
-    echo       Start Menu shortcut created successfully.
-) else (
-    echo  [!] Could not create Start Menu shortcut.
-    echo      You can still launch with:  swordfish.bat
+    winget install --id Kitware.CMake -e --silent
 )
 
-if not exist "%ICON%" (
-    echo  [!] icon.ico not found at %ICON%
-    echo      The shortcut will use the Python icon instead.
-    echo      Place icon.ico in the repo root and re-run to fix.
+:: ── 2. Qt6 (MSVC 64-bit) ─────────────────────────────────────────────────────
+echo [2/4] Installing Qt6...
+echo       Note: Qt6 is large (~4GB). This will take a while.
+echo       If you already have Qt6 installed, press Ctrl+C and set:
+echo         set CMAKE_PREFIX_PATH=C:\Qt\6.x.x\msvc2019_64
+echo.
+winget install --id Qt.Qt -e --silent 2>nul || (
+    echo       winget could not install Qt automatically.
+    echo       Download the Qt Online Installer from https://www.qt.io/download-qt-installer
+    echo       Install: Qt 6.x ^ WebEngine ^ WebChannel ^ Network components
 )
-echo.
 
-:: ── 5. Verify installs ───────────────────────────────────────────────────────
-echo ── Verification ──────────────────────────────────────────────────────────
-%PYTHON% -c "import PySide6;  print('  [OK] PySide6')"   2>nul || echo   [MISSING] PySide6
-%PYTHON% -c "import yt_dlp;   print('  [OK] yt-dlp')"    2>nul || echo   [MISSING] yt-dlp
-%PYTHON% -c "import mammoth;  print('  [OK] mammoth')"   2>nul || echo   [MISSING] mammoth
-%PYTHON% -c "import fitz;     print('  [OK] pymupdf')"   2>nul || echo   [MISSING] pymupdf
-%PYTHON% -c "import pdf2docx; print('  [OK] pdf2docx')"  2>nul || echo   [MISSING] pdf2docx
-ffmpeg -version >nul 2>&1 && echo   [OK] ffmpeg || echo   [MISSING] ffmpeg ^(restart terminal after install^)
-echo.
+:: ── 3. Visual Studio Build Tools (C++ compiler) ───────────────────────────────
+echo [3/4] Installing MSVC Build Tools...
+winget install --id Microsoft.VisualStudio.2022.BuildTools -e --silent ^
+    --override "--quiet --add Microsoft.VisualStudio.Workload.VCTools --includeRecommended" 2>nul || (
+    echo       If Visual Studio is already installed, this step can be skipped.
+)
 
+:: ── 4. NSIS (for creating .exe installer) ────────────────────────────────────
+echo [4/4] Installing NSIS (for .exe packaging)...
+winget install --id NSIS.NSIS -e --silent 2>nul || echo       (optional — only needed to build installer)
+
+echo.
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-echo   Installation Complete! 🎉
+echo   Dependencies installed.
 echo.
-echo   Launch options:
-echo     • Start Menu  →  search "SwordFish Browser"
-echo     • Double-click:  swordfish.bat  in the repo folder
-echo     • Terminal:      python src\main.py
+echo   BUILD STEPS (run in a Qt6 MSVC Developer Prompt):
+echo     cmake -B build -DCMAKE_BUILD_TYPE=Release
+echo     cmake --build build --parallel
+echo     cd build ^& cpack -G NSIS
+echo.
+echo   Or use package_windows.sh --native in Git Bash / MSYS2.
 echo ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 pause

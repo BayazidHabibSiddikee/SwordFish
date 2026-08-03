@@ -8,6 +8,16 @@ SwordFish is a **privacy-first, power-user browser** built with **C++ and Qt6/We
 
 ---
 
+## ⬇️ Download
+
+| Platform | File | How to install |
+|---|---|---|
+| **Linux** (.deb) | [swordfish-2.0.0-Linux.deb](dist/swordfish-2.0.0-Linux.deb) | `sudo dpkg -i swordfish-2.0.0-Linux.deb` |
+| **Linux** (.tar.gz) | [swordfish-2.0.0-Linux.tar.gz](dist/swordfish-2.0.0-Linux.tar.gz) | Extract and run `SwordFish` |
+| **Windows** (.exe) | Build from source (see below) | Requires Qt6 on Windows |
+
+---
+
 ## 🚀 Key Features
 
 ### 🌐 Browsing
@@ -21,7 +31,7 @@ SwordFish is a **privacy-first, power-user browser** built with **C++ and Qt6/We
 - **Reading Mode**, **Picture-in-Picture**, **Media Controls Bar**
 
 ### 🛠️ Tools Hub
-Open from the **🔧 Tools** menu. All tools are built-in — no downloads required. The hub runs as an embedded web page with full dark/light mode support.
+Open from the **🔧 Tools** menu. The hub runs as an embedded web page with full dark/light mode support.
 
 | Category | Tools |
 |---|---|
@@ -33,7 +43,7 @@ Open from the **🔧 Tools** menu. All tools are built-in — no downloads requi
 
 ### 🧩 Extensions (UserScripts)
 - Load Greasemonkey/Tampermonkey-compatible `.user.js` scripts from `~/.config/SwordFish/extensions/`
-- **Install from Tools Hub** — paste a Greasy Fork page URL or any `.user.js` direct link in the install bar on the Tools Hub page; auto-downloads, validates, and activates immediately — no dialog needed
+- **Install from Tools Hub** — paste a Greasy Fork page URL or any `.user.js` direct link in the install bar; auto-downloads, validates, and activates immediately
 - **Install from manager** — Ctrl+Shift+E → 🌐 Install from URL
 - Toggle scripts on/off per-session, reload all without restarting
 
@@ -52,7 +62,20 @@ Open from the **🔧 Tools** menu. All tools are built-in — no downloads requi
 
 ## 📦 Installation
 
-### 🐧 Linux
+### 🐧 Linux — Quick install (.deb)
+
+```bash
+# Download and install
+wget https://github.com/BayazidHabibSiddikee/SwordFish/raw/main/dist/swordfish-2.0.0-Linux.deb
+sudo dpkg -i swordfish-2.0.0-Linux.deb
+
+# If dependencies are missing:
+sudo apt-get install -f
+```
+
+Launch from the app menu or run `SwordFish` in the terminal.
+
+### 🐧 Linux — Build from source
 
 **1. Clone and build:**
 ```bash
@@ -61,81 +84,67 @@ cd SwordFish
 chmod +x install_cpp.sh
 ./install_cpp.sh
 ```
-This installs Qt6, CMake, and all runtime tools (LibreOffice, poppler, p7zip, etc.) then builds the binary.
+This installs Qt6, CMake, and build tools, then compiles the binary.
 
 **2. Install the binary:**
 ```bash
 mkdir -p ~/.local/bin
 cp build/SwordFish ~/.local/bin/SwordFish
-```
 
-**3. Install the desktop entry and icon:**
-```bash
-mkdir -p ~/.local/share/applications \
-         ~/.local/share/icons/hicolor/256x256/apps \
-         ~/.local/share/pixmaps
-
+# Desktop entry and icon
+mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps
 cp icon.png ~/.local/share/icons/hicolor/256x256/apps/swordfish.png
-cp icon.png ~/.local/share/pixmaps/swordfish.png
-
 cat > ~/.local/share/applications/swordfish.desktop << EOF
 [Desktop Entry]
 Version=2.0
 Type=Application
 Name=SwordFish
-GenericName=Web Browser
-Comment=Privacy-first power-user web browser
 Exec=$HOME/.local/bin/SwordFish %U
-TryExec=$HOME/.local/bin/SwordFish
 Icon=swordfish
 Terminal=false
-StartupNotify=true
-StartupWMClass=SwordFish
 Categories=Network;WebBrowser;Qt;
-MimeType=text/html;text/xml;application/xhtml+xml;x-scheme-handler/http;x-scheme-handler/https;
-Actions=NewWindow;NewPrivateWindow;
-
-[Desktop Action NewWindow]
-Name=New Window
-Exec=$HOME/.local/bin/SwordFish
-
-[Desktop Action NewPrivateWindow]
-Name=New Private Window
-Exec=$HOME/.local/bin/SwordFish --private
 EOF
-
 update-desktop-database ~/.local/share/applications
 ```
 
-**4. Add terminal alias (optional):**
+**After updating, rebuild and redeploy:**
 ```bash
-echo 'alias swordfish="~/.local/bin/SwordFish &"' >> ~/.bashrc
-source ~/.bashrc
+git pull && cmake --build build --parallel $(nproc) && cp build/SwordFish ~/.local/bin/SwordFish
 ```
 
-Launch from the app menu or run:
-```bash
-swordfish
-# or directly:
-~/.local/bin/SwordFish
-```
+### 🪟 Windows — Build from source
 
-**After updating the source, rebuild and redeploy with:**
-```bash
-cd SwordFish
-git pull
-cmake --build build --parallel $(nproc)
-cp build/SwordFish ~/.local/bin/SwordFish
-```
+> A pre-built `.exe` installer requires building on Windows (Qt WebEngine cannot be cross-compiled from Linux).
 
-### 🪟 Windows
 ```cmd
-# In an Administrator Command Prompt:
+REM In an Administrator Command Prompt:
 requirements.bat
+
+REM Then in a Qt6 MSVC Developer Prompt:
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --parallel
-build\Release\SwordFish.exe
+cd build && cpack -G NSIS
+REM → produces SwordFish-2.0.0-win64.exe in dist/
 ```
+
+---
+
+## 📦 Optional Tool Dependencies
+
+These are **not needed to run the browser** — only needed for specific tools. Install them from the Tools Hub or manually:
+
+| Tools | Package | Install |
+|---|---|---|
+| PDF Merge / Split | `qpdf` | `sudo apt install qpdf` |
+| Word / Excel / PPTX ↔ PDF | `libreoffice` | `sudo apt install libreoffice` |
+| PDF → Image / Text | `poppler-utils` | `sudo apt install poppler-utils` |
+| Text → PDF | `enscript` + `ghostscript` | `sudo apt install enscript ghostscript` |
+| 7-Zip archives | `p7zip-full` | `sudo apt install p7zip-full` |
+| QR Code Generator | `qrencode` | `sudo apt install qrencode` |
+| Media Download + YT Transcript | `yt-dlp` | `sudo apt install yt-dlp` |
+| Translator | `python3` + `deep-translator` | `sudo apt install python3 python3-pip` |
+
+Or just open **🔧 Tools → Tools Hub → 📦 Optional Dependencies** and click Install.
 
 ---
 
@@ -144,9 +153,9 @@ build\Release\SwordFish.exe
 ```
 SwordFish/
 ├── src/
-│   ├── main.cpp                 # Entry point, DNS-over-HTTPS init (before QApplication)
+│   ├── main.cpp                 # Entry point, DNS-over-HTTPS init
 │   ├── mainwindow.cpp/.h        # Main window, tabs, menus, ToolsBackend
-│   ├── adblocker.cpp/.h         # Network-level ad/tracker blocking (persisted level)
+│   ├── adblocker.cpp/.h         # Network-level ad/tracker blocking
 │   ├── extension_system.cpp/.h  # UserScript loader + install-from-URL
 │   ├── password_manager.cpp/.h  # AES-256 password vault
 │   ├── file_picker.cpp/.h       # Home-restricted file picker
@@ -157,14 +166,18 @@ SwordFish/
 │   ├── sync_manager.cpp/.h      # Bookmark/history sync
 │   ├── web_page.cpp/.h          # Custom QWebEnginePage
 │   ├── styles.cpp/.h            # One Dark theme stylesheet
-│   ├── tools.html               # Tools Hub UI (Qt resource, QWebChannel, dark/light mode)
-│   ├── qrcode.png               # Donate QR code (bundled in resources)
-│   └── resources.qrc            # Qt resource bundle (tools.html + qrcode.png)
-├── tools/                       # External tool scripts (Python helpers)
-├── utils/                       # Network and TTS utilities
+│   ├── tools/                   # PDF, Office, Archive, Student tool wrappers
+│   ├── tools.html               # Tools Hub UI (Qt resource, QWebChannel)
+│   ├── qrcode.png               # Donate QR (bundled in resources)
+│   └── resources.qrc            # Qt resource bundle
+├── dist/
+│   ├── swordfish-2.0.0-Linux.deb    # Debian/Ubuntu installer
+│   └── swordfish-2.0.0-Linux.tar.gz # Portable archive
 ├── packaging/linux/             # .desktop file, man page
 ├── CMakeLists.txt
-└── install_cpp.sh               # Dependency installer + build script
+├── install_cpp.sh               # Dependency installer + build script
+├── build_packages.sh            # Build all Linux packages (.deb/.rpm/AppImage)
+└── package_windows.sh           # Windows build + NSIS installer script
 ```
 
 ---
@@ -189,9 +202,8 @@ SwordFish/
 | Requirement | Version |
 |---|---|
 | CMake | ≥ 3.20 |
-| C++ compiler | C++17 (GCC 10+, Clang 12+) |
+| C++ compiler | C++17 (GCC 10+, Clang 12+, MSVC 2019+) |
 | Qt6 | Core, Gui, Widgets, Network, WebEngineCore, WebEngineWidgets, WebChannel |
-| Runtime tools | LibreOffice, poppler-utils, p7zip, qpdf, qrencode, enscript, ghostscript, yt-dlp |
 
 ---
 
