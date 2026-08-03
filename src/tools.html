@@ -5,10 +5,46 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SwordFish Tools Hub</title>
     <style>
+        /* ── Light mode (default) ── */
+        :root {
+            --bg:        #f0faff;
+            --bg-card:   #ffffff;
+            --bg-hover:  #e0f2fe;
+            --border:    #caf0f8;
+            --border-hv: #00b4d8;
+            --text:      #333333;
+            --text-name: #023e8a;
+            --text-desc: #666666;
+            --heading:   #0077b6;
+            --sec-title: #0096c7;
+            --sec-line:  #ade8f4;
+            --shadow:    rgba(0,0,0,0.05);
+            --shadow-hv: rgba(0,180,216,0.2);
+        }
+
+        /* ── Dark mode — One Dark palette ── */
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg:        #282c34;
+                --bg-card:   #2c313c;
+                --bg-hover:  #3e4451;
+                --border:    #3e4451;
+                --border-hv: #61afef;
+                --text:      #abb2bf;
+                --text-name: #61afef;
+                --text-desc: #5c6370;
+                --heading:   #61afef;
+                --sec-title: #98c379;
+                --sec-line:  #3e4451;
+                --shadow:    rgba(0,0,0,0.3);
+                --shadow-hv: rgba(97,175,239,0.15);
+            }
+        }
+
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #f0faff;
-            color: #333;
+            background-color: var(--bg);
+            color: var(--text);
             margin: 0;
             padding: 20px;
         }
@@ -18,14 +54,14 @@
         }
         h1 {
             text-align: center;
-            color: #0077b6;
+            color: var(--heading);
             margin-bottom: 30px;
             font-size: 32px;
             text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
         }
         .section-title {
-            color: #0096c7;
-            border-bottom: 2px solid #ade8f4;
+            color: var(--sec-title);
+            border-bottom: 2px solid var(--sec-line);
             padding-bottom: 5px;
             margin: 30px 0 15px;
             font-size: 22px;
@@ -36,20 +72,20 @@
             gap: 20px;
         }
         .tool-card {
-            background-color: #ffffff;
+            background-color: var(--bg-card);
             border-radius: 12px;
             padding: 20px;
             text-align: center;
             transition: all 0.3s ease;
             cursor: pointer;
-            border: 1px solid #caf0f8;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px var(--shadow);
         }
         .tool-card:hover {
             transform: translateY(-5px);
-            background-color: #e0f2fe;
-            border-color: #00b4d8;
-            box-shadow: 0 8px 15px rgba(0,180,216,0.2);
+            background-color: var(--bg-hover);
+            border-color: var(--border-hv);
+            box-shadow: 0 8px 15px var(--shadow-hv);
         }
         .tool-icon {
             font-size: 40px;
@@ -59,13 +95,28 @@
         .tool-name {
             font-size: 16px;
             font-weight: bold;
-            color: #023e8a;
+            color: var(--text-name);
         }
         .tool-desc {
             font-size: 11px;
-            color: #666;
+            color: var(--text-desc);
             margin-top: 8px;
             line-height: 1.4;
+        }
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 2px solid var(--sec-line);
+        }
+        .footer a { color: var(--heading); text-decoration: none; font-weight: bold; }
+        .footer img {
+            width: 150px; height: 150px;
+            margin-top: 15px;
+            border: 2px solid var(--border-hv);
+            border-radius: 12px;
+            padding: 5px;
+            background: white;
         }
     </style>
 </head>
@@ -210,12 +261,12 @@
             </div>
         </div>
 
-        <div style="text-align: center; margin-top: 50px; padding-top: 20px; border-top: 2px solid #ade8f4;">
-            <p style="font-size: 14px; color: #666; margin-bottom: 20px;">
-                Developed by <a href="https://github.com/BayazidHabibSiddikee" style="color: #0077b6; text-decoration: none; font-weight: bold;">Bayazid Habib Siddikee</a>
+        <div class="footer">
+            <p style="font-size: 14px; color: var(--text-desc); margin-bottom: 20px;">
+                Developed by <a href="https://github.com/BayazidHabibSiddikee">Bayazid Habib Siddikee</a>
             </p>
-            <p style="font-size: 18px; color: #0077b6; font-weight: bold; margin-bottom: 5px;">Buy me a cup of coffee! ☕</p>
-            <img src="qrcode.png" alt="QR Code" style="width: 150px; height: 150px; margin-top: 15px; border: 2px solid #0096c7; border-radius: 12px; padding: 5px; background: white;">
+            <p style="font-size: 18px; color: var(--heading); font-weight: bold; margin-bottom: 5px;">Buy me a cup of coffee! ☕</p>
+            <img src="qrc:///qrcode.png" alt="Donate QR Code">
         </div>
     </div>
 
