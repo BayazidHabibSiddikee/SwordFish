@@ -118,6 +118,49 @@
             padding: 5px;
             background: white;
         }
+        /* ── Extension install bar ── */
+        .install-box {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 10px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 16px 20px;
+            box-shadow: 0 4px 6px var(--shadow);
+        }
+        .install-box input {
+            flex: 1;
+            min-width: 260px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: var(--bg);
+            color: var(--text);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .install-box input:focus { border-color: var(--border-hv); }
+        .install-box button {
+            padding: 10px 22px;
+            border-radius: 8px;
+            border: none;
+            background: var(--heading);
+            color: #fff;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .install-box button:hover  { opacity: 0.85; }
+        .install-box button:disabled { opacity: 0.45; cursor: default; }
+        #installStatus {
+            width: 100%;
+            font-size: 13px;
+            min-height: 18px;
+        }
     </style>
 </head>
 <body>
@@ -212,6 +255,13 @@
             </div>
         </div>
 
+        <div class="section-title">🧩 Install UserScript Extension</div>
+        <div class="install-box">
+            <input type="text" id="scriptUrl" placeholder="Paste a Greasy Fork page URL or any .user.js link…" />
+            <button id="installBtn" onclick="installScript()">⬇️ Install</button>
+            <div id="installStatus"></div>
+        </div>
+
         <div class="section-title">🛠️ Utilities</div>
         <div class="tool-grid">
             <div class="tool-card" onclick="runTool('archive')">
@@ -276,6 +326,17 @@
 
         new QWebChannel(qt.webChannelTransport, function(channel) {
             backend = channel.objects.backend;
+            // Listen for install result signal from C++
+            if (backend.extensionInstalled) {
+                backend.extensionInstalled.connect(function(success, message) {
+                    onExtensionInstalled(success, message);
+                });
+            }
+        });
+
+        // Allow pressing Enter in the URL input to trigger install
+        document.getElementById('scriptUrl').addEventListener('keydown', function(e) {
+            if (e.key === 'Enter') installScript();
         });
 
         function runTool(name) {
@@ -287,6 +348,41 @@
                     if (backend) backend.run_tool(name);
                     else alert("Tools backend not available. Please reload the page.");
                 }, 300);
+            }
+        }
+
+        function installScript() {
+            var url = document.getElementById('scriptUrl').value.trim();
+            if (!url) return;
+
+            var btn    = document.getElementById('installBtn');
+            var status = document.getElementById('installStatus');
+
+            if (!backend) {
+                status.style.color = 'red';
+                status.textContent = '❌ Backend not ready — try again in a moment.';
+                return;
+            }
+
+            btn.disabled = true;
+            status.style.color = 'var(--text-desc)';
+            status.textContent  = '⏳ Downloading…';
+
+            backend.install_extension(url);
+        }
+
+        // Called by ToolsBackend when install finishes
+        function onExtensionInstalled(success, message) {
+            var btn    = document.getElementById('installBtn');
+            var status = document.getElementById('installStatus');
+            btn.disabled = false;
+            if (success) {
+                status.style.color = '#98c379';
+                status.textContent  = '✅ Installed: ' + message;
+                document.getElementById('scriptUrl').value = '';
+            } else {
+                status.style.color = '#e06c75';
+                status.textContent  = '❌ Failed: ' + message;
             }
         }
     </script>

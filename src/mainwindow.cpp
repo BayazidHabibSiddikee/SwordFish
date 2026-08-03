@@ -199,6 +199,15 @@ void ToolsBackend::run_tool(const QString &name) {
     }
 }
 
+void ToolsBackend::install_extension(const QString &url) {
+    auto *mw = qobject_cast<MainWindow*>(m_mainWindow);
+    if (!mw || !mw->extensions()) return;
+
+    mw->extensions()->installFromUrl(url, [this](bool success, const QString &msg) {
+        emit extensionInstalled(success, msg);
+    });
+}
+
 // ── MainWindow ────────────────────────────────────────────────────────────
 
 MainWindow::MainWindow(bool isPrivate, QWidget *parent)

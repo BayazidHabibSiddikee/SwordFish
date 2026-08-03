@@ -35,6 +35,8 @@ class CustomWebPage;
 // ── ToolsBackend ──────────────────────────────────────────────────────────
 // Exposed to tools.html via QWebChannel as channel.objects.backend.
 // Every card in tools.html calls backend.run_tool(name).
+// install_extension(url) triggers an extension install and emits
+// extensionInstalled(success, message) when done — tools.html listens for it.
 class ToolsBackend : public QObject {
     Q_OBJECT
 public:
@@ -42,9 +44,10 @@ public:
 
 public slots:
     Q_INVOKABLE void run_tool(const QString &name);
+    Q_INVOKABLE void install_extension(const QString &url);
 
 signals:
-    void toolDownloaded(const QString &name, bool success);
+    void extensionInstalled(bool success, const QString &message);
 
 private:
     QObject *m_mainWindow;  // MainWindow* — avoid circular include
@@ -82,6 +85,7 @@ class MainWindow : public QMainWindow {
 public:
     explicit MainWindow(bool isPrivate = false, QWidget *parent = nullptr);
     TabWidget *newTab(const QString &url = QString());
+    ExtensionSystem *extensions() const { return m_extensions; }
 
 protected:
     void closeEvent(QCloseEvent *event) override;
