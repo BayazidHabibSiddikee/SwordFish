@@ -14,27 +14,26 @@ SwordFish is a **privacy-first, power-user browser** built with **C++ and Qt6/We
 - **Multi-tab** with tab pinning, muting, and keyboard shortcuts
 - **Privacy-first** — local profile storage, no external telemetry, dedicated **Stealth/Private Mode**
 - **Advanced Adblocker** — 4-level protection (None / Low / Medium / Ultimate), setting persists across restarts
-- **DNS-over-HTTPS** — AdGuard by default, switchable to Cloudflare, NextDNS, Google, or System DNS. Applied at startup before the network stack initializes.
-- **YouTube Shorts blocked** — Shorts URLs are intercepted and redirected; Shorts shelf hidden from the YouTube homepage and sidebar
+- **DNS-over-HTTPS** — AdGuard by default, switchable to Cloudflare, NextDNS, Google, or System DNS. Applied at startup before the network stack initializes
+- **YouTube Shorts blocked** — Shorts URLs intercepted and redirected; Shorts shelf and sidebar link hidden everywhere on YouTube
 - **Media Downloader** — integrated `yt-dlp` for video (up to 4K) and audio (MP3/M4A/OGG)
 - **English-Only Mode** — force English locale across all web content
 - **Reading Mode**, **Picture-in-Picture**, **Media Controls Bar**
 
 ### 🛠️ Tools Hub
-Open from the **🔧 Tools** menu. All tools are built-in — no downloads required.
+Open from the **🔧 Tools** menu. All tools are built-in — no downloads required. The hub runs as an embedded web page with full dark/light mode support.
 
 | Category | Tools |
 |---|---|
-| **PDF & Docs** | Word↔PDF, Excel↔PDF, PPTX↔PDF, Image↔PDF, Text→PDF, Merge/Split PDF, Extract Text |
-| **Utilities** | Calculator, Unit Converter, Programmer Calc (Bin/Hex/Oct/Dec), Archive Tools (Zip/7z/Tar) |
-| **Media & Info** | YouTube Transcript, Translator, Weather, QR Generator, Note Taker, Timer |
-| **System** | Launch Terminal |
+| **PDF & Docs** | Word↔PDF, Excel↔PDF, PPTX↔PDF, Image↔PDF, Text→PDF, Merge/Split PDF, Extract Text, CSV↔Excel |
+| **Language & Media** | Translator, YouTube Transcript |
+| **Utilities** | Calculator, Unit Converter, Programmer Calc (Bin/Hex/Oct/Dec), Archive Tools (Zip/7z/Tar), Timer, QR Generator, Weather, Note Taker, Terminal |
 
 ### 🧩 Extensions (UserScripts)
 - Load Greasemonkey/Tampermonkey-compatible `.user.js` scripts from `~/.config/SwordFish/extensions/`
-- **Install from URL** — paste a Greasy Fork page URL or any `.user.js` direct link; auto-downloads, validates, and activates immediately
+- **Install from Tools Hub** — paste a Greasy Fork page URL or any `.user.js` direct link in the install bar on the Tools Hub page; auto-downloads, validates, and activates immediately — no dialog needed
+- **Install from manager** — Ctrl+Shift+E → 🌐 Install from URL
 - Toggle scripts on/off per-session, reload all without restarting
-- Open via **Ctrl+Shift+E**
 
 ### 🔐 Password Manager
 - Captures login forms automatically
@@ -53,7 +52,7 @@ Open from the **🔧 Tools** menu. All tools are built-in — no downloads requi
 
 ### 🐧 Linux
 
-**1. Install build dependencies:**
+**1. Clone and build:**
 ```bash
 git clone https://github.com/BayazidHabibSiddikee/SwordFish.git
 cd SwordFish
@@ -70,9 +69,13 @@ cp build/SwordFish ~/.local/bin/SwordFish
 
 **3. Install the desktop entry and icon:**
 ```bash
-mkdir -p ~/.local/share/applications ~/.local/share/icons/hicolor/256x256/apps ~/.local/share/pixmaps
+mkdir -p ~/.local/share/applications \
+         ~/.local/share/icons/hicolor/256x256/apps \
+         ~/.local/share/pixmaps
+
 cp icon.png ~/.local/share/icons/hicolor/256x256/apps/swordfish.png
 cp icon.png ~/.local/share/pixmaps/swordfish.png
+
 cat > ~/.local/share/applications/swordfish.desktop << EOF
 [Desktop Entry]
 Version=2.0
@@ -98,16 +101,27 @@ Exec=$HOME/.local/bin/SwordFish
 Name=New Private Window
 Exec=$HOME/.local/bin/SwordFish --private
 EOF
+
 update-desktop-database ~/.local/share/applications
+```
+
+**4. Add terminal alias (optional):**
+```bash
+echo 'alias swordfish="~/.local/bin/SwordFish &"' >> ~/.bashrc
+source ~/.bashrc
 ```
 
 Launch from the app menu or run:
 ```bash
+swordfish
+# or directly:
 ~/.local/bin/SwordFish
 ```
 
 **After updating the source, rebuild and redeploy with:**
 ```bash
+cd SwordFish
+git pull
 cmake --build build --parallel $(nproc)
 cp build/SwordFish ~/.local/bin/SwordFish
 ```
@@ -128,26 +142,27 @@ build\Release\SwordFish.exe
 ```
 SwordFish/
 ├── src/
-│   ├── main.cpp              # Entry point, DNS-over-HTTPS init
-│   ├── mainwindow.cpp/.h     # Main window, tabs, all menus
-│   ├── adblocker.cpp/.h      # Network-level ad/tracker blocking
+│   ├── main.cpp                 # Entry point, DNS-over-HTTPS init (before QApplication)
+│   ├── mainwindow.cpp/.h        # Main window, tabs, menus, ToolsBackend
+│   ├── adblocker.cpp/.h         # Network-level ad/tracker blocking (persisted level)
 │   ├── extension_system.cpp/.h  # UserScript loader + install-from-URL
 │   ├── password_manager.cpp/.h  # AES-256 password vault
-│   ├── file_picker.cpp/.h    # Home-restricted file picker
-│   ├── folder_picker.cpp/.h  # Home-restricted folder picker
-│   ├── media_bar.cpp/.h      # Media playback controls
-│   ├── reading_mode.cpp/.h   # Reader mode
-│   ├── pip_window.cpp/.h     # Picture-in-Picture
-│   ├── sync_manager.cpp/.h   # Bookmark/history sync
-│   ├── web_page.cpp/.h       # Custom QWebEnginePage
-│   ├── styles.cpp/.h         # One Dark theme stylesheet
-│   ├── tools.html            # Tools Hub UI (Qt resource, QWebChannel)
-│   └── resources.qrc         # Qt resource bundle
-├── tools/                    # External tool scripts (Python helpers)
-├── utils/                    # Network and TTS utilities
-├── packaging/linux/          # .desktop file, man page
+│   ├── file_picker.cpp/.h       # Home-restricted file picker
+│   ├── folder_picker.cpp/.h     # Home-restricted folder picker
+│   ├── media_bar.cpp/.h         # Media playback controls
+│   ├── reading_mode.cpp/.h      # Reader mode
+│   ├── pip_window.cpp/.h        # Picture-in-Picture
+│   ├── sync_manager.cpp/.h      # Bookmark/history sync
+│   ├── web_page.cpp/.h          # Custom QWebEnginePage
+│   ├── styles.cpp/.h            # One Dark theme stylesheet
+│   ├── tools.html               # Tools Hub UI (Qt resource, QWebChannel, dark/light mode)
+│   ├── qrcode.png               # Donate QR code (bundled in resources)
+│   └── resources.qrc            # Qt resource bundle (tools.html + qrcode.png)
+├── tools/                       # External tool scripts (Python helpers)
+├── utils/                       # Network and TTS utilities
+├── packaging/linux/             # .desktop file, man page
 ├── CMakeLists.txt
-└── install_cpp.sh            # Dependency installer + build script
+└── install_cpp.sh               # Dependency installer + build script
 ```
 
 ---
